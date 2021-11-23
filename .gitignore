@@ -1,3 +1,10 @@
+# Large files
+*.png
+
+# Log files/implementation files
+slurm*
+*.sbatch
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
