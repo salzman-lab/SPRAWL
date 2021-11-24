@@ -6,7 +6,7 @@
 #
 # Creation Date : 23-11-2021
 #
-# Last Modified : Tue 23 Nov 2021 12:31:10 PM PST
+# Last Modified : Tue 23 Nov 2021 01:07:11 PM PST
 #
 # Created By : Rob Bierman
 #
@@ -62,12 +62,14 @@ gene_ann_samps = (
 
 gene_ann_samps = gene_ann_samps.groupby('annotation').filter(lambda g: len(g) >= min_samps_of_ann)
 gene_ann_samps['Mouse'] = np.where(gene_ann_samps['sample_name'].str.startswith('M1'),'Mouse1','Mouse2')
+ann_order = sorted(gene_ann_samps['annotation'].unique())
 
 #Iterate through the two mice separately
 fig,axs = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(10,5))
 
 for i,(mouse,mouse_gene_ann_samps) in enumerate(gene_ann_samps.groupby('Mouse')):
-
+    print(mouse)
+    
     plot_df = mouse_gene_ann_samps.merge(
         cells_df,
         on=['gene','annotation','sample_name'],
@@ -81,9 +83,7 @@ for i,(mouse,mouse_gene_ann_samps) in enumerate(gene_ann_samps.groupby('Mouse'))
     frac_bins = np.arange(0,1,0.1)
     gene_fracs = plot_df['num_gene_spots'].div(plot_df['num_spots'])
     plot_df['frac_bin'] = pd.cut(gene_fracs, frac_bins)
-
-
-
+    
     ##################
     #                #
     #     Scatters   #
@@ -105,6 +105,7 @@ for i,(mouse,mouse_gene_ann_samps) in enumerate(gene_ann_samps.groupby('Mouse'))
             palette = [gf_color],
             alpha = 0.5,
             dodge = True,
+            order = ann_order,
             data = sub_plot_df,
             ax = axs[i],
         )
@@ -122,6 +123,7 @@ for i,(mouse,mouse_gene_ann_samps) in enumerate(gene_ann_samps.groupby('Mouse'))
         hue = 'sample_name',
         color = 'grey',
         fliersize = 0,
+        order = ann_order,
         data = plot_df,
         ax = axs[i],
     )
@@ -139,7 +141,7 @@ for i,(mouse,mouse_gene_ann_samps) in enumerate(gene_ann_samps.groupby('Mouse'))
     axs[i].set_ylabel(mouse)
     axs[i].legend().set_visible(False)
     axs[i].set_xlabel('')
-    axs[i].set_ylim(-1.2,1.2)
+    axs[i].set_ylim(-1.2,1.2) #little bit larger so asterixis show
     axs[i].set_yticks([-1.0,-0.5,0.0,0.5,1.0])
     axs[i].axhline(0,color='grey',linestyle='dotted')
 
@@ -160,8 +162,8 @@ l = plt.legend(
 fig.text(-0.03, 0.5, 'Effect size (positive is peripheral)', va='center', rotation='vertical')
 plt.suptitle(gene)
 plt.tight_layout()
+
 #plt.show()
 plt.savefig('/oak/stanford/groups/horence/rob/isoform_localizations/SRRS/plotting/no_min_sample_boxplots/{}.png'.format(gene))
 plt.close()
-
 
