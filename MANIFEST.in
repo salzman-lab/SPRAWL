@@ -1,1 +1,1 @@
-recursive-include src *.hdf5
+recursive-include src/SRRS/vignette_data *
