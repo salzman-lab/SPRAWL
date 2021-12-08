@@ -10,7 +10,7 @@ on:
 
 jobs:
 
-  test_3.7:
+  test_py37:
 
     runs-on: ubuntu-latest
 
@@ -33,7 +33,7 @@ jobs:
         run: pytest tests
 
 
-  test_3.5:
+  test_py35:
 
     runs-on: ubuntu-latest
 
