@@ -33,25 +33,4 @@ jobs:
         run: pytest tests
 
 
-  test_py35:
-
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v2
-
-      - name: Setup Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: "3.5"
-
-      - name: Install SRRS
-        run: pip install .
-
-      - name: Install testing dependencies
-        run: pip install -r requirements_test.txt 
-
-      - name: Run tests
-        run: pytest tests
 

@@ -1,8 +1,4 @@
-try:
-    import importlib.resources as pkg_resources
-except ImportError:
-    # Try backported to PY<3.7 `importlib_resources`.
-    import importlib_resources as pkg_resources
+import importlib_resources as pkg_resources
 
 from .hdf5 import HDF5
 from . import vignette_data
