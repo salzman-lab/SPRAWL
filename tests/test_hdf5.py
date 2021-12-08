@@ -1,20 +1,11 @@
-#!/bin/bash
-#############################
-# File Name :
-#
-# Purpose : [???]
-#
-# Creation Date : 21-11-2021
-#
-# Last Modified : Sun 21 Nov 2021 05:03:01 PM PST
-#
-# Created By : Rob Bierman
-#
-##############################
-
 import pytest
-import SRRS
 
-def test_hdf5():
-    assert SRRS.read_hdf5()
+def test_vignette_1(m1s4):
+    assert m1s4.num_cells == 20
 
+def test_vignette_2(m2s4):
+    assert m2s4.num_cells == 20
+
+
+def test_vignette_1_diff_2(m1s4, m2s4):
+    assert m1s4.cell_ids != m2s4.cell_ids

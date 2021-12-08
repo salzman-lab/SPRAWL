@@ -6,6 +6,8 @@ class HDF5(object):
     """
     Wrapper class around spatial HDF5 file
     """
+    _f = None
+
     def __init__(self, hdf5_path):
         self.hdf5_path = hdf5_path
         self._f = h5py.File(self.hdf5_path,'r')
