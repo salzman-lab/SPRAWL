@@ -5,12 +5,14 @@ import pandas as pd
 import numpy as np
 import collections
 import h5py
+import os
 
 import operator as op
 from functools import reduce
 import math
+import time
 
-import utils
+from . import utils
 
 def ncr(n, r):
     """
@@ -540,6 +542,28 @@ def calculate_linear_median_effect_sizes(hdf5_cell):
 
     return cell_info
 
+
+def _test(hdf5_path, cell_id):
+    """
+    Test metric
+    """
+    f = h5py.File(hdf5_path,'r')
+    cell = f['cells'][cell_id]
+    name = os.path.basename(cell.name)
+    f.close()
+
+    return name
+
+def _slow_test(hdf5_path, cell_id):
+    """
+    Test metric
+    """
+    f = h5py.File(hdf5_path,'r')
+    cell = f['cells'][cell_id]
+    name = os.path.basename(cell.name)
+    f.close()
+    time.sleep(1)
+    return name
 
 
 ########################
