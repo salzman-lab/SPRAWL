@@ -147,334 +147,62 @@ def calc_exp_midord(m,n):
     return numerator/denominator
 
 
-def get_ks_p(obs_ranks):
-    """
-    Calculate ks-p value for observed ranks
-    """
-    stat,p = stats.kstest(
-        rvs = obs_ranks,
-        cdf = 'uniform',
-        alternative='greater',
-        mode='exact',
-    )
-    return p
-
-
 ########################
 #   Metrics guidelines #
 ########################
-#Each metric needs to take input in the form of an hdf5_cell
+#Each metric needs to take input in the form of an hdf5_path and a cell_id
 #The metric function calculates the per-gene score for all genes in the cell
 #   For the periphery ranking, this will be based on the minimum distance of each spot to the periph
-#   For the centrality ranking, this will be based on the minimum distance of each spot to the centroid
-#   For the radial ranking this will be based on the min angle dist of each spot to the ref line
+#   For the radial ranking this will be based on the min angle dist of each spot to the gene radial center
 
-#The dataframe object where each row is a unique gene. The df must have the following columns:
-#     'gene' The gene of the row
+#Return value will be a pandas dataframe where each row is a unique gene. The df is expected to have the following columns:
+#     'cell_id' the cell id. will be the same for every row
 #     'annotation' The cell-type annotation information. same for all rows
-#     'subclass' The cell-type annotation information. same for all rows
-#     'num_genes' The number of unique genes in the cell. same for all rows
-#     'num_gene_spots' The number of spots of this spots gene in the cell
 #     'num_spots' The number of spots in the whole cell. same for all rows
-#     'volume' optional, the volume of the cell, same for all rows
+#     'gene' The gene of the row
+#     'num_gene_spots' The number of spots of this spots gene in the cell
+#     'metric' peripheral/polar etc
+#     'score' value ranging from -1 to 1
+#     'variance' theoretical variance under the null
 
-def calculate_ks_periphery_scores(hdf5_cell):
+def _test(hdf5_path, cell_id):
     """
-    Returns a list/array of min distances of each spot to the cell boundary
-    Operates on an individual cell
-    """
-    min_periph_dists = []
-    min_spot_genes = []
-
-    for zslice in hdf5_cell.attrs.get('zslices'):
-
-        #Calculate dists of each spot to periphery
-        boundary = hdf5_cell['boundaries'][zslice]
-        spot_coords = hdf5_cell['spot_coords'][zslice]
-        spot_genes = hdf5_cell['spot_genes'][zslice]
-
-        poly = shapely.geometry.Polygon(boundary)
-        for p,gene in zip(spot_coords,spot_genes):
-            dist = poly.boundary.distance(shapely.geometry.Point(p))
-            min_periph_dists.append(dist)
-            min_spot_genes.append(gene)
-
-    #Rank and normalize the spots
-    min_spot_genes = np.array(min_spot_genes)
-    spot_ranks = np.array(min_periph_dists).argsort().argsort()
-    norm_spot_ranks = spot_ranks/len(spot_ranks)
-
-    #Iterate through unique genes to get per-gene score
-    genes = np.unique(min_spot_genes)
-    num_genes_per_spot = []
-    gene_scores = []
-    for gene in genes:
-        gene_inds = min_spot_genes == gene
-        num_genes_per_spot.append(sum(gene_inds))
-        
-        gene_ranks = norm_spot_ranks[gene_inds]
-        ks_p = get_ks_p(gene_ranks)
-        gene_scores.append(ks_p)
-
-    
-    cell_info = pd.DataFrame({
-        'gene':[g.decode() for g in genes],
-        'gene_score':gene_scores,
-        'annotation':hdf5_cell.attrs.get('annotation'),
-        'subclass':hdf5_cell.attrs.get('subclass'),
-        'num_genes':hdf5_cell.attrs.get('num_genes'),
-        'num_gene_spots':num_genes_per_spot,
-        'num_spots':hdf5_cell.attrs.get('num_spots'),
-        'volume':hdf5_cell.attrs.get('volume'),
-    })
-
-    return cell_info
-
-
-def calculate_ks_centrality_scores(hdf5_cell):
-    """
-    Returns a list/array of min distances of each spot to the cell centroid 
-    Operates on an individual cell
-
-    Calculates (x-x0)^2+(y-y0)^2 where (x0,y0) is the cell centroid
-    Don't have to take the sqrt for the L2 norm because I'm just comparing to spots
-    """
-    min_centroid_dists = []
-    min_spot_genes = []
-    for zslice in hdf5_cell.attrs.get('zslices'):
-
-        #Calculate dists of each spot to centroid
-        boundary = hdf5_cell['boundaries'][zslice]
-        spot_coords = hdf5_cell['spot_coords'][zslice]
-        spot_genes = hdf5_cell['spot_genes'][zslice]
-
-        centroid = np.mean(boundary,axis=0)
-        spot_norms = spot_coords-centroid
-        centroid_dists = np.sum(spot_norms*spot_norms,axis=1)
-        
-        min_centroid_dists.extend(centroid_dists)
-        min_spot_genes.extend(spot_genes)
-
-        
-    min_spot_genes = np.array(min_spot_genes)
-    spot_ranks = np.array(min_centroid_dists).argsort().argsort()
-    norm_spot_ranks = spot_ranks/len(spot_ranks)
-
-
-    #Iterate through unique genes to get per-gene score
-    genes = np.unique(min_spot_genes)
-    num_genes_per_spot = []
-    gene_scores = []
-    for gene in genes:
-        gene_inds = min_spot_genes == gene
-        num_genes_per_spot.append(sum(gene_inds))
-
-        gene_ranks = norm_spot_ranks[gene_inds]
-        ks_p = get_ks_p(gene_ranks)
-        gene_scores.append(ks_p)
-
-    cell_info = pd.DataFrame({
-        'gene':[g.decode() for g in genes],
-        'gene_score':gene_scores,
-        'annotation':hdf5_cell.attrs.get('annotation'),
-        'subclass':hdf5_cell.attrs.get('subclass'),
-        'num_genes':hdf5_cell.attrs.get('num_genes'),
-        'num_gene_spots':num_genes_per_spot,
-        'num_spots':hdf5_cell.attrs.get('num_spots'),
-        'volume':hdf5_cell.attrs.get('volume'),
-    })
-
-    return cell_info
-
-
-def calculate_ks_radial_scores(hdf5_cell):
-    """
-    Returns a list/array of min angle distances of each spot to the reference line
-    Operates on an individual cell
+    Test metric
+    Returns a test df with all columns as expected except
+        metric - test
+        score - 0
     """
 
-    #Step 0: Calculate the absolute value angle of each spot to the line segment (0,0) --> (1,0) for each zslice
-    horiz_angs = []
-    spot_genes = []
-    for zslice in hdf5_cell.attrs.get('zslices'):
+    with h5py.File(hdf5_path,'r') as f:
+        cell = f['cells'][cell_id]
+        gene_counts = collections.defaultdict(int)
 
-        #Calculate dists of each spot to centroid
-        z_boundary = hdf5_cell['boundaries'][zslice]
-        z_spot_coords = hdf5_cell['spot_coords'][zslice]
-        z_spot_genes = hdf5_cell['spot_genes'][zslice]
+        for z_ind in cell.attrs['zslices']:
+            z_counts = collections.Counter(cell['spot_genes'][z_ind])
+            gene_counts.update(z_counts)
 
-        z_centroid = np.mean(z_boundary,axis=0)
-        centered_spots = z_spot_coords-z_centroid
-        x = centered_spots[:,0]
-        y = centered_spots[:,1]
-        z_horiz_angs = np.abs(np.arctan2(y,x))
-       
-        horiz_angs.extend(z_horiz_angs)
-        spot_genes.extend(z_spot_genes)
+        #drop a spot for genes with an even number of spots
+        n = sum(gene_counts.values())
+        ms = [m if m%2 == 1 else m-1 for m in gene_counts.values()]
+        vs = [utils.calc_var(m,n) for m in ms]
 
-    horiz_angs = np.array(horiz_angs)
-    spot_genes = np.array(spot_genes)
-    
-    #Iterate through each GENE doing the following steps:
-    #Step 1: Calculate median angle of all the GENE spots only
-    #Step 2: Calculate abs-value of angle of ALL spots to this median
-    #Step 3: Rank and normalize ALL spots based on their med_ang_dist
-    #Step 4: Retrieve the normalized ranks JUST for spots of GENE
-    #Step 5: Run KS-test with just the normalized GENE ranks
-    genes = np.unique(spot_genes)
-    num_genes_per_spot = []
-    gene_scores = []
-    for gene in genes:
-        gene_inds = spot_genes == gene
-        num_genes_per_spot.append(sum(gene_inds))
-
-        med_gene_ang = np.median(horiz_angs[gene_inds])
-        med_ang_dists = np.abs(horiz_angs-med_gene_ang)
-        spot_ranks = med_ang_dists.argsort().argsort()
-        norm_spot_ranks = spot_ranks/len(spot_ranks)
- 
-        norm_gene_spot_ranks = norm_spot_ranks[gene_inds]
-        
-        ks_p = get_ks_p(norm_gene_spot_ranks)
-        gene_scores.append(ks_p)
-
-    
-    cell_info = pd.DataFrame({
-        'gene':[g.decode() for g in genes],
-        'gene_score':gene_scores,
-        'annotation':hdf5_cell.attrs.get('annotation'),
-        'subclass':hdf5_cell.attrs.get('subclass'),
-        'num_genes':hdf5_cell.attrs.get('num_genes'),
-        'num_gene_spots':num_genes_per_spot,
-        'num_spots':hdf5_cell.attrs.get('num_spots'),
-        'volume':hdf5_cell.attrs.get('volume'),
-    })
-
-    return cell_info
-
-
-def calculate_periphery_dists(hdf5_cell):
-    """
-    Helper function to return min dists to the periphery
-
-    Not used in nf pipelin run
-    """
-    min_periph_dists = []
-    min_spot_genes = []
-
-    for zslice in hdf5_cell.attrs.get('zslices'):
-
-        #Calculate dists of each spot to periphery
-        boundary = hdf5_cell['boundaries'][zslice]
-        spot_coords = hdf5_cell['spot_coords'][zslice]
-        spot_genes = hdf5_cell['spot_genes'][zslice]
-
-        poly = shapely.geometry.Polygon(boundary)
-        for p,gene in zip(spot_coords,spot_genes):
-            dist = poly.boundary.distance(shapely.geometry.Point(p))
-            min_periph_dists.append(dist)
-            min_spot_genes.append(gene)
-
-    #Rank the spots
-    min_spot_genes = np.array(min_spot_genes)
-    spot_ranks = np.array(min_periph_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
-
-    df = pd.DataFrame({
-        'gene':[g.decode() for g in min_spot_genes],
-        'dist':min_periph_dists,
-        'rank':spot_ranks,
-        'annotation':hdf5_cell.attrs.get('annotation'),
-    })
+        df = pd.DataFrame({
+            'cell_id':cell_id,
+            'annotation':cell.attrs['annotation'],
+            'num_spots':n,
+            'gene':gene_counts.keys(),
+            'num_gene_spots':gene_counts.values(),
+            'metric':'test',
+            'score':0,
+            'variance':vs,
+        })
 
     return df
 
 
-def calculate_rs_periphery_scores(hdf5_cell):
+def peripheral(hdf5_path, cell_id):
     """
-    Returns a list/array of min distances of each spot to the cell boundary
-    Operates on an individual cell
-
-    Returns a dataframe where each row is a unique gene in this cell
-    """
-    min_periph_dists = []
-    min_spot_genes = []
-
-    for zslice in hdf5_cell.attrs.get('zslices'):
-
-        #Calculate dists of each spot to periphery
-        boundary = hdf5_cell['boundaries'][zslice]
-        spot_coords = hdf5_cell['spot_coords'][zslice]
-        spot_genes = hdf5_cell['spot_genes'][zslice]
-
-        poly = shapely.geometry.Polygon(boundary)
-        for p,gene in zip(spot_coords,spot_genes):
-            dist = poly.boundary.distance(shapely.geometry.Point(p))
-            min_periph_dists.append(dist)
-            min_spot_genes.append(gene)
-
-    #Rank the spots
-    min_spot_genes = np.array(min_spot_genes)
-    spot_ranks = np.array(min_periph_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
-    tot_spots = len(spot_ranks)
-
-    #Iterate through unique genes to get per-gene score
-    genes = np.unique(min_spot_genes)
-    num_genes_per_spot = []
-    gene_scores = []
-    obs_medians = []
-    exp_medians = []
-    for gene in genes:
-        gene_inds = min_spot_genes == gene
-        num_spots = int(sum(gene_inds))
-        gene_ranks = spot_ranks[gene_inds]
-
-        """
-        #hack, randomly dropping a spot if even number of points
-        #doing this because calculating probability is two orders of magnitude
-        #faster for odd-m than even-m
-        if num_spots%2==0:
-            num_spots -= 1
-            gene_ranks = np.random.choice(gene_ranks,num_spots,replace=False)
-        """
-
-        num_genes_per_spot.append(num_spots)
-        obs_median = np.median(gene_ranks)
-        rs_p = p_le_med(num_spots,tot_spots,obs_median)
-
-        gene_scores.append(rs_p)
-        obs_medians.append(obs_median)
-        exp_medians.append(tot_spots/2) #don't even really need to calculate this here, could calc on output df
-
-    
-    cell_info = pd.DataFrame({
-        'gene':[g.decode() for g in genes],
-        'gene_score':gene_scores,
-        'obs_midord':obs_medians,
-        'exp_midord':exp_medians,
-        'annotation':hdf5_cell.attrs.get('annotation'),
-        'subclass':hdf5_cell.attrs.get('subclass'),
-        'num_genes':hdf5_cell.attrs.get('num_genes'),
-        'num_gene_spots':num_genes_per_spot,
-        'num_spots':hdf5_cell.attrs.get('num_spots'),
-        'volume':hdf5_cell.attrs.get('volume'),
-    })
-
-    return cell_info
-
-
-def calculate_rs_centrality_scores(hdf5_cell):
-    pass
-
-
-def calculate_rs_radial_scores(hdf5_cell):
-    pass
-
-
-def calculate_linear_median_effect_sizes(hdf5_cell):
-    """
-    Operates on an individual cell
-
-    Returns a dataframe where each row is a unique gene in this cell
+    Peripheral metric
     """
     min_periph_dists = []
     min_spot_genes = []
@@ -518,7 +246,7 @@ def calculate_linear_median_effect_sizes(hdf5_cell):
         num_genes_per_spot.append(num_spots)
         obs_med = np.median(gene_ranks)
         eff = utils.f_effect(obs_med, tot_spots)
-        var = utils.calc_var_effect_size(num_spots,tot_spots)
+        var = utils.calc_var(num_spots,tot_spots)
 
         gene_scores.append(eff)
         mn_vars.append(var)
@@ -542,68 +270,5 @@ def calculate_linear_median_effect_sizes(hdf5_cell):
 
     return cell_info
 
-
-def _test(hdf5_path, cell_id):
-    """
-    Test metric
-    """
-    f = h5py.File(hdf5_path,'r')
-    cell = f['cells'][cell_id]
-    name = os.path.basename(cell.name)
-    f.close()
-
-    return name
-
-def _slow_test(hdf5_path, cell_id):
-    """
-    Test metric
-    """
-    f = h5py.File(hdf5_path,'r')
-    cell = f['cells'][cell_id]
-    name = os.path.basename(cell.name)
-    f.close()
-    time.sleep(1)
-    return name
-
-
-########################
-#   Rank calculator    #
-########################
-def calculate_ranks(hdf5_path, metric, cell_ids=[]):
-    """
-    Iterate through all cells in the hdf5 file, calculating the per-gene scores
-    the function will calculate each cell individually and yield a dataframe object for each cell
-
-    The columns and rows of the df are described in the comments above the metric functions
-    """
-    with h5py.File(hdf5_path,'r') as f:
-
-        #If subset of cell_ids is not passed in, then process them all
-        if len(cell_ids) == 0:
-            cell_ids = f['cell_ids']
-
-        for i,cell_id in enumerate(cell_ids):
-
-            #Apply the correct metric to this cell
-            hdf5_cell = f['cells'][cell_id.decode()]
-            metric_func = metric_lookup[metric]
-            gene_scores = metric_func(hdf5_cell)
-
-            gene_scores['cell_id'] = cell_id
-            gene_scores['metric'] = metric
-
-            yield gene_scores
-
-
-#Metric lookup to map string to metric function
-metric_lookup = {
-    'ks_periph': calculate_ks_periphery_scores,
-    'ks_central': calculate_ks_centrality_scores,
-    'ks_radial': calculate_ks_radial_scores,
-    'rs_periph': calculate_rs_periphery_scores,
-    'rs_central': calculate_rs_centrality_scores,
-    'rs_radial': calculate_rs_radial_scores,
-    'lin_eff_periph':calculate_linear_median_effect_sizes,
-}
 
 

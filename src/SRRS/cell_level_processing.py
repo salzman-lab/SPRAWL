@@ -10,8 +10,7 @@ def score_cells(hdf5, metric, min_gene_spots=10):
 
     available_metrics = {
         '_test':metrics._test,
-        '_slow_test':metrics._slow_test,
-        'peripheral':metrics.calculate_linear_median_effect_sizes,
+        'peripheral':metrics.peripheral,
     }
 
 

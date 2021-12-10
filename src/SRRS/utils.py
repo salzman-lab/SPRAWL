@@ -405,7 +405,7 @@ def p_med(m,n,obs_med):
     return p
 
 
-def calc_var_effect_size(m,n):
+def calc_var(m,n):
     """
     Calculates the variance in effect sizes for choosing m spots out of n
     Uses the formula below
