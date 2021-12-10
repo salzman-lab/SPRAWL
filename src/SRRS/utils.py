@@ -301,9 +301,9 @@ def str2bool(v):
 
 
 
-def f_effect(obs_med, n):
+def score(obs_med, n):
     """
-    Calculate a linear effect size
+    Calculate SRRS score from median observed rank
     """
     exp_med = (n+1)/2
     eff = (exp_med-obs_med)/(exp_med-1)
@@ -437,7 +437,7 @@ def calc_var(m,n):
     p_eff = collections.defaultdict(float)
     
     for med in possible_meds:
-        eff_sq = f_effect(med,n)**2
+        eff_sq = score(med,n)**2
         p_eff[eff_sq] += p_med(m,n,med)*eff_sq
             
     var = sum(p_eff.values())
