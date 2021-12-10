@@ -62,7 +62,7 @@ def _test(hdf5_path, cell_id):
             'cell_id':cell_id,
             'annotation':cell.attrs['annotation'],
             'num_spots':n,
-            'gene':gene_counts.keys(),
+            'gene':[g.decode() for g in gene_counts.keys()],
             'num_gene_spots':ms,
             'median_rank':(n+1)/2,
             'score':0,

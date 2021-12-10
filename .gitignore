@@ -1,5 +1,7 @@
-# Large files
+# Potentially large files
 *.png
+*.csv
+*.out
 
 # Log files/implementation files
 slurm*
