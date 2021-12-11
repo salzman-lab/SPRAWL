@@ -1,6 +1,7 @@
 from matplotlib.patches import Circle, Wedge, Polygon, Rectangle
 from matplotlib.collections import PatchCollection
 import matplotlib.pyplot as plt
+import os
 
 class Cell:
     """

@@ -75,6 +75,7 @@ class HDF5:
         produce an iterator of Cell objects
         """
         with h5py.File(self.path,'r') as _f:
-            for cell_id,cell in _f['cells'].items():
-                yield cell.Cell(cell)
+            for cell_id,cell_group in _f['cells'].items():
+                yield cell.Cell(cell_group)
+
 

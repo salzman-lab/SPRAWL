@@ -120,6 +120,8 @@ def calc_var(m,n):
     Var(X) = E[X**2] #since u is always 0
 
     E[X**2] = sum(P(X**2=x**2)x**2)
+
+    symmetry under the null allows to calculate only half the possible meds
     """
     if m%2 == 1:
         #m odd case
@@ -133,8 +135,7 @@ def calc_var(m,n):
         max_med = n//2
         possible_meds = np.arange(min_med,max_med+1,0.5)
 
-    var = 0
-    var += 2*sum(p_med(m,n,med)*score(med,n)**2 for med in possible_meds)
+    var = 2*sum(p_med(m,n,med)*score(med,n)**2 for med in possible_meds)
 
     return var
 
