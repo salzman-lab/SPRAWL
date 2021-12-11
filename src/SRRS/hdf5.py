@@ -2,7 +2,8 @@ import pandas as pd
 import numpy as np
 import h5py
 
-import os
+from . import cell
+
 
 class HDF5:
     """
@@ -75,30 +76,5 @@ class HDF5:
         """
         with h5py.File(self.path,'r') as _f:
             for cell_id,cell in _f['cells'].items():
-                yield self.Cell(cell)
-
-
-    class Cell:
-        """
-        Subclass wrapper around an HDF5 cell group
-
-        copies HDF5 cell data into a simple python object
-        reason is to allow for multiprocessing to work on pickleable object
-        and allow cell data to "live" outside closed HDF5s
-        """
-
-        def __init__(self, group):
-            self.annotation = group.attrs.get('annotation')
-            self.zslices = group.attrs.get('zslices')
-            self.cell_id = os.path.basename(group.name)
-
-            self.boundaries = {}
-            self.spot_coords = {}
-            self.spot_genes = {}
-            for zslice in self.zslices:
-                self.boundaries[zslice] = group['boundaries'][zslice][:]
-                self.spot_coords[zslice] = group['spot_coords'][zslice][:]
-                self.spot_genes[zslice] = group['spot_genes'][zslice][:]
-
-
+                yield cell.Cell(cell)
 

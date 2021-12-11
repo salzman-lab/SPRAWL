@@ -1,6 +1,4 @@
 import pytest
-import os
-
 import SRRS
 
 @pytest.mark.parametrize('dataset', ['m1s4','m2s4'])

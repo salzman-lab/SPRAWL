@@ -1,6 +1,4 @@
 import pytest
-import os
-
 import SRRS
 
 def test_cell_counts(m1s4, m2s4):
@@ -17,7 +15,13 @@ def test_annotations(m1s4, m2s4):
     assert 'L6_CT_3' in m2s4.annotations
 
 
-def test_cells(m1s4, m2s4):
-    sum(1 for _ in m1s4.iter_cells()) == 20
-    sum(1 for _ in m2s4.iter_cells()) == 20
+@pytest.mark.parametrize('dataset', ['m1s4','m2s4'])
+def test_iter_cells(dataset, request):
+    dataset = request.getfixturevalue(dataset)
+
+    cell_ids = [c.cell_id for c in dataset.iter_cells()]
+    assert cell_ids == dataset.cell_ids
+
+    anns = [c.annotation for c in dataset.iter_cells()]
+    assert anns == dataset.annotations
 
