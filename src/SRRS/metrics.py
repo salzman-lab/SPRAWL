@@ -18,7 +18,7 @@ from . import utils
 ########################
 #   Metrics guidelines #
 ########################
-# Each metric needs to take input in the form of an hdf5_path and a cell_id
+# Each metric needs to take input in the form of a Cell object (from hdf5.py)
 # The metric function calculates the per-gene score for all genes in the cell
 #   e.g. the periphery ranking, this will be based on the minimum distance of each spot to the periph
 #   e.g. the radial ranking this will be based on the min angle dist of each spot to the gene radial center
@@ -36,7 +36,7 @@ from . import utils
 
 #extra columns shouldn't be a problem
 
-def _test(hdf5_path, cell_id):
+def _test(cell):
     """
     Test metric
     Returns a test df with all columns as expected except
@@ -44,57 +44,51 @@ def _test(hdf5_path, cell_id):
         score - 0
     """
 
-    with h5py.File(hdf5_path,'r') as f:
-        cell = f['cells'][cell_id]
-        gene_counts = collections.defaultdict(int)
+    gene_counts = collections.defaultdict(int)
 
-        for z_ind in cell.attrs.get('zslices'):
-            z_counts = collections.Counter(cell['spot_genes'][z_ind])
-            gene_counts.update(z_counts)
+    for z_ind in cell.zslices:
+        z_counts = collections.Counter(cell.spot_genes[z_ind])
+        gene_counts.update(z_counts)
 
-        #drop a spot for genes with an even number of spots
-        n = sum(gene_counts.values())
-        ms = [m if m%2 == 1 else m-1 for m in gene_counts.values()]
-        vs = [utils.calc_var(m,n) for m in ms]
+    #drop a spot for genes with an even number of spots
+    n = sum(gene_counts.values())
+    ms = [m if m%2 == 1 else m-1 for m in gene_counts.values()]
+    vs = [utils.calc_var(m,n) for m in ms]
 
-        df = pd.DataFrame({
-            'metric':'test',
-            'cell_id':cell_id,
-            'annotation':cell.attrs['annotation'],
-            'num_spots':n,
-            'gene':[g.decode() for g in gene_counts.keys()],
-            'num_gene_spots':ms,
-            'median_rank':(n+1)/2,
-            'score':0,
-            'variance':vs,
-        })
+    df = pd.DataFrame({
+        'metric':'test',
+        'cell_id':cell.cell_id,
+        'annotation':cell.annotation,
+        'num_spots':n,
+        'gene':[g.decode() for g in gene_counts.keys()],
+        'num_gene_spots':ms,
+        'median_rank':(n+1)/2,
+        'score':0,
+        'variance':vs,
+    })
 
     return df
 
 
-def peripheral(hdf5_path, cell_id):
+def peripheral(cell):
     """
     Peripheral metric
     """
     min_periph_dists = []
     min_spot_genes = []
 
-    with h5py.File(hdf5_path,'r') as f:
-        cell = f['cells'][cell_id]
-        annotation = cell.attrs.get('annotation')
+    for zslice in cell.zslices:
 
-        for zslice in cell.attrs.get('zslices'):
+        #Calculate dists of each spot to periphery
+        boundary = cell.boundaries[zslice]
+        spot_coords = cell.spot_coords[zslice]
+        spot_genes = cell.spot_genes[zslice]
 
-            #Calculate dists of each spot to periphery
-            boundary = cell['boundaries'][zslice]
-            spot_coords = cell['spot_coords'][zslice]
-            spot_genes = cell['spot_genes'][zslice]
-
-            poly = shapely.geometry.Polygon(boundary)
-            for p,gene in zip(spot_coords,spot_genes):
-                dist = poly.boundary.distance(shapely.geometry.Point(p))
-                min_periph_dists.append(dist)
-                min_spot_genes.append(gene)
+        poly = shapely.geometry.Polygon(boundary)
+        for p,gene in zip(spot_coords,spot_genes):
+            dist = poly.boundary.distance(shapely.geometry.Point(p))
+            min_periph_dists.append(dist)
+            min_spot_genes.append(gene)
 
     #Rank the spots
     min_spot_genes = np.array(min_spot_genes)
@@ -130,8 +124,8 @@ def peripheral(hdf5_path, cell_id):
 
     df = pd.DataFrame({
         'metric':'peripheral',
-        'cell_id':cell_id,
-        'annotation':annotation,
+        'cell_id':cell.cell_id,
+        'annotation':cell.annotation,
         'num_spots':tot_spots,
         'gene':[g.decode() for g in genes],
         'num_gene_spots':num_genes_per_spot,

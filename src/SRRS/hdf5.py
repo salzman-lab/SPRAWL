@@ -68,14 +68,14 @@ class HDF5:
         """
         return len(self.genes)
 
-    @property
-    @fhandle
+
     def iter_cells(self):
         """
         produce an iterator of Cell objects
         """
-        for cell_id,cell in self._f['cells'].items():
-            yield self.Cell(cell)
+        with h5py.File(self.path,'r') as _f:
+            for cell_id,cell in _f['cells'].items():
+                yield self.Cell(cell)
 
 
     class Cell:
@@ -96,9 +96,9 @@ class HDF5:
             self.spot_coords = {}
             self.spot_genes = {}
             for zslice in self.zslices:
-                self.boundaries[zslice] = cell['boundaries'][zslice][:]
-                self.spot_coords[zslice] = cell['spot_coords'][zslice][:]
-                self.spot_genes[zslice] = cell['spot_genes'][zslice][:]
+                self.boundaries[zslice] = group['boundaries'][zslice][:]
+                self.spot_coords[zslice] = group['spot_coords'][zslice][:]
+                self.spot_genes[zslice] = group['spot_genes'][zslice][:]
 
 
 

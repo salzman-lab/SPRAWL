@@ -21,9 +21,8 @@ def score_cells(hdf5, metric, min_gene_spots=10):
     #h5py objects cannot be passed into multiprocessing since they are not pickleable
     #workaround is for each process to be pased the hdf5 path and the cell name to operate on
     #each process then needs to open the hdf5 file, which is something I'd like to avoid as a future TODO
-    starmap_args = [(hdf5.path,cell_id) for cell_id in hdf5.cell_ids]
     with multiprocessing.Pool() as p:
-        results = p.starmap(available_metrics[metric], starmap_args)
-   
+        results = p.map(available_metrics[metric], hdf5.iter_cells())
+
     return results
 
