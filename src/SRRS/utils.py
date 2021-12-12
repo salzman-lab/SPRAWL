@@ -5,6 +5,8 @@ import collections
 import scipy
 import math
 
+ncr_mem = {}
+
 def score(obs_med, n):
     """
     Calculate SRRS score from median observed rank
@@ -25,9 +27,13 @@ def ncr(n, r):
         return 1
 
     r = min(r, n-r)
-    numer = reduce(op.mul, range(n, n-r, -1), 1)
-    denom = reduce(op.mul, range(1, r+1), 1)
-    return numer // denom
+
+    if (n,r) not in ncr_mem:
+        numer = reduce(op.mul, range(n, n-r, -1), 1)
+        denom = reduce(op.mul, range(1, r+1), 1)
+        ncr_mem[(n,r)] = numer // denom
+
+    return ncr_mem[(n,r)]
 
 
 def p_med(m,n,obs_med):
