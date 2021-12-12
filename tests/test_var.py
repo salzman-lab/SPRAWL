@@ -27,6 +27,7 @@ def test_given_n_increasing_m_lowers_vars(n):
     assert vs == sorted(vs, reverse=True)
 
 
+@pytest.mark.parametrize('seed',[17,23])
 @pytest.mark.parametrize(
     'm,n',
     [
@@ -39,8 +40,8 @@ def test_given_n_increasing_m_lowers_vars(n):
         (14,178),
     ]
 )
-def test_empirical_var_under_null(m,n):
-    np.random.seed(1) #<-- just so the test always fails or always succeeds for a given code
+def test_empirical_var_under_null(seed,m,n):
+    np.random.seed(seed) #<-- just so the test always fails or always succeeds for a given code
     theory_var = utils.calc_var(m,n)
 
     threshold = 5e-3

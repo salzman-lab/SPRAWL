@@ -1,12 +1,10 @@
-import pandas as pd
-import numpy as np
-
-import multiprocessing
+import multiprocessing as mp
 from . import metrics
 
+import logging
 import sys
 
-def score_cells(cells, metric):
+def iter_scores(cells, metric):
 
     available_metrics = {
         '_test':metrics._test,
@@ -17,8 +15,10 @@ def score_cells(cells, metric):
         sys.stderr.write('Metric {} not found in possible metrics {}\n'.format(metric, available_metrics.keys()))
         sys.exit(1)
 
-    with multiprocessing.Pool() as p:
-        results = p.map(available_metrics[metric], cells)
+    logging.info('Scoring with {} cpu cores'.format(mp.cpu_count()))
 
-    return results
+    with mp.Pool() as p:
+        results = p.imap(available_metrics[metric], cells)
+        for result in results:
+            yield result
 

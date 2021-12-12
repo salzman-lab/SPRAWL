@@ -30,21 +30,6 @@ def ncr(n, r):
     return numer // denom
 
 
-def p_ord_stat(m,n,k,x):
-    """
-    Calculates the probability that the k-th ranked item in the sample
-    has order statistic x when choosing m spots out of n without replacement
-
-    Taken from http://www.math.wm.edu/~leemis/2005informsjoc.pdf
-    """
-    numer = ncr(x-1,k-1)*ncr(n-x,m-k)
-    denom = ncr(n,m)
-    if numer == 0:
-        return 0
-
-    return numer/denom
-
-
 def p_med(m,n,obs_med):
     """
     Calculates the probability of observing the median value obs_med
@@ -82,7 +67,6 @@ def p_med(m,n,obs_med):
         #Even case
         l = m//2
         r = l+1
-
 
         p = 0
 
