@@ -28,6 +28,7 @@ class Cell:
             self.spot_coords[zslice] = group['spot_coords'][zslice][:]
             self.spot_genes[zslice] = group['spot_genes'][zslice][:]
 
+            self.tot_spots += group['spot_genes'][zslice].shape[0]
 
     @property
     def gene_counts(self):

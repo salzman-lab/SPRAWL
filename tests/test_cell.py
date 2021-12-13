@@ -30,7 +30,7 @@ def test_iter_cells_filter_tot_spots(dataset, request):
     cells = (c for c in cells if c.tot_spots > 800)
 
     num_filt_cells = sum(1 for c in cells)
-    assert num_filt_cells < dataset.num_cells
+    assert 0 < num_filt_cells < dataset.num_cells
 
 
 @pytest.mark.parametrize('dataset', ['m1s4','m2s4'])
