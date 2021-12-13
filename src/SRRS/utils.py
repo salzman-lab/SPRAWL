@@ -67,7 +67,7 @@ def p_med(m,n,obs_med):
         #Odd case
         obs_med = int(obs_med)
         k = (m+1)//2
-        p = ncr(obs_med-1,k-1)*ncr(n-obs_med,m-k)/ncr(n,m)
+        p = ncr(obs_med-1,k-1)*ncr(n-obs_med,m-k)
 
     else:
         #Even case
@@ -75,8 +75,6 @@ def p_med(m,n,obs_med):
         r = l+1
 
         p = 0
-
-        denom = ncr(n,m)
 
         Rl = math.ceil(obs_med-1)
         Rr = math.floor(obs_med+1)
@@ -93,12 +91,12 @@ def p_med(m,n,obs_med):
 
             #p = ncr(x-1,k-1)*ncr(n-x,m-k)/ncr(n,m)
             p_r_given_l = ncr(n-Rr,m-l-1)/ncr(n-Rl,m-l)
-            p += p_r_given_l*ncr(Rl-1,l-1)*ncr(n-Rl,m-l)/denom
+            p += p_r_given_l*ncr(Rl-1,l-1)*ncr(n-Rl,m-l)
 
             Rl -= 1
             Rr += 1
 
-    return p
+    return p/ncr(n,m)
 
 
 def calc_var(m,n):
