@@ -139,11 +139,7 @@ def p_med(m,n,obs_med):
         #Odd case
         obs_med = int(obs_med)
         k = (m+1)//2
-
-        p = ncr_op(
-            numers = [(obs_med-1,k-1),(n-obs_med,m-k)],
-            denoms = [(n,m)],
-        )
+        p = ncr(obs_med-1,k-1)*ncr(n-obs_med,m-k)/ncr(n,m)
 
     else:
         #Even case
@@ -166,14 +162,11 @@ def p_med(m,n,obs_med):
             #new_x = Rr-Rl
 
             #p = ncr(x-1,k-1)*ncr(n-x,m-k)/ncr(n,m)
-            p += ncr_op(
-                numers = [(n-Rr,m-l-1),(Rl-1,l-1)],
-                denoms = [(n,m)],
-            )
+            p_r_given_l = ncr(n-Rr,m-l-1)
+            p += p_r_given_l*ncr(Rl-1,l-1)/ncr(n,m)
 
             Rl -= 1
             Rr += 1
-
 
     return p
 
