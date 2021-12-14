@@ -38,10 +38,13 @@ def test_given_n_increasing_m_lowers_vars(n):
         (4,17),
         (16,18),
         (14,178),
+        (2,1015),
+        (48,1015),
+        (6,557),
     ]
 )
 def test_empirical_var_under_null(seed,m,n):
-    np.random.seed(seed) #<-- just so the test always fails or always succeeds for a given code
+    np.random.seed(seed) #<-- just so the test always fails or always succeeds
     theory_var = utils.calc_var(m,n)
 
     threshold = 5e-3
