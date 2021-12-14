@@ -67,7 +67,7 @@ def p_med(m,n,obs_med):
         #Odd case
         obs_med = int(obs_med)
         k = (m+1)//2
-        p = ncr(obs_med-1,k-1)*ncr(n-obs_med,m-k)
+        p = ncr(obs_med-1,k-1)*ncr(n-obs_med,m-k)/ncr(n,m)
 
     else:
         #Even case
@@ -90,13 +90,13 @@ def p_med(m,n,obs_med):
             #new_x = Rr-Rl
 
             #p = ncr(x-1,k-1)*ncr(n-x,m-k)/ncr(n,m)
-            p_r_given_l = ncr(n-Rr,m-l-1)/ncr(n-Rl,m-l)
-            p += p_r_given_l*ncr(Rl-1,l-1)*ncr(n-Rl,m-l)
+            p_r_given_l = ncr(n-Rr,m-l-1)
+            p += p_r_given_l*ncr(Rl-1,l-1)/ncr(n,m)
 
             Rl -= 1
             Rr += 1
 
-    return p/ncr(n,m)
+    return p
 
 
 def calc_var(m,n):
