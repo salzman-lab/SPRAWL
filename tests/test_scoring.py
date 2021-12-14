@@ -1,6 +1,7 @@
 import pytest
 import SRRS
 
+@pytest.mark.slow
 @pytest.mark.parametrize('dataset', ['m1s4','m2s4'])
 @pytest.mark.parametrize('metric', ['_test','peripheral'])
 def test_multiplex_scoring_metrics_m1s4(dataset, metric, request):
@@ -15,6 +16,10 @@ def test_multiplex_scoring_metrics_m1s4(dataset, metric, request):
 
     genes = list(set(g for df in score_dfs for g in df.gene.unique()))
     assert sorted(genes) == sorted(dataset.genes)
+
+    #for cell in dataset.iter_cells():
+    #    cell.
+    #score_dfs.set_index(['cell_id','gene'])['num_gene_spots']
 
 
 @pytest.mark.slow

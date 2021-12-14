@@ -9,6 +9,7 @@ import os
 
 import operator as op
 from functools import reduce
+import logging
 import math
 import time
 
@@ -18,7 +19,13 @@ from . import utils
 ########################
 #   Metrics guidelines #
 ########################
-# Each metric needs to take input in the form of a Cell object (from hdf5.py)
+# Each metric function needs to have the following method signature
+#   def metric_name(cell, var_mem={})
+
+# First argument is a Cell object (from cell.py)
+# Second optional argument var_mem is a dict to cache theoretical vars
+#
+#
 # The metric function calculates the per-gene score for all genes in the cell
 #   e.g. the periphery ranking, this will be based on the minimum distance of each spot to the periph
 #   e.g. the radial ranking this will be based on the min angle dist of each spot to the gene radial center
@@ -36,7 +43,7 @@ from . import utils
 
 #extra columns shouldn't be a problem
 
-def _test(cell):
+def _test(cell, var_mem={}):
     """
     Test metric
     Returns a test df with all columns as expected except
@@ -44,23 +51,21 @@ def _test(cell):
         score - 0
     """
 
-    gene_counts = collections.defaultdict(int)
+    n = cell.n
+    ms = cell.gene_counts.values()
 
-    for z_ind in cell.zslices:
-        z_counts = collections.Counter(cell.spot_genes[z_ind])
-        gene_counts.update(z_counts)
-
-    #drop a spot for genes with an even number of spots
-    n = sum(gene_counts.values())
-    ms = [m if m%2 == 1 else m-1 for m in gene_counts.values()]
-    vs = [utils.calc_var(m,n) for m in ms]
+    vs = []
+    for m in ms:
+        if (m,n) not in var_mem:
+            var_mem[(m,n)] = utils.calc_var(m,n)
+        vs.append(var_mem[(m,n)])
 
     df = pd.DataFrame({
         'metric':'test',
         'cell_id':cell.cell_id,
         'annotation':cell.annotation,
-        'num_spots':n,
-        'gene':[g.decode() for g in gene_counts.keys()],
+        'num_spots':cell.n,
+        'gene':[g.decode() for g in cell.gene_counts.keys()],
         'num_gene_spots':ms,
         'median_rank':(n+1)/2,
         'score':0,
@@ -70,7 +75,7 @@ def _test(cell):
     return df
 
 
-def peripheral(cell):
+def peripheral(cell, var_mem={}):
     """
     Peripheral metric
     """
@@ -93,7 +98,7 @@ def peripheral(cell):
     #Rank the spots
     min_spot_genes = np.array(min_spot_genes)
     spot_ranks = np.array(min_periph_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
-    tot_spots = len(spot_ranks)
+    n = len(spot_ranks)
 
     #Iterate through unique genes to get per-gene score
     genes = np.unique(min_spot_genes)
@@ -103,20 +108,18 @@ def peripheral(cell):
     obs_medians = []
     for gene in genes:
         gene_inds = min_spot_genes == gene
-        num_spots = int(sum(gene_inds))
+        m = int(sum(gene_inds))
 
         gene_ranks = spot_ranks[gene_inds]
 
-        #Drop one spot randomly (uniformly) if an even number
-        #approximation. reason is calculating variance for even number of order of magnitude slower
-        if num_spots%2 == 0:
-            num_spots -= 1
-            gene_ranks = np.random.choice(gene_ranks,num_spots,replace=False)
-
-        num_genes_per_spot.append(num_spots)
+        num_genes_per_spot.append(m)
         obs_med = np.median(gene_ranks)
-        score = utils.score(obs_med, tot_spots)
-        var = utils.calc_var(num_spots,tot_spots)
+        score = utils.score(obs_med, n)
+
+        #calculate var if not cached
+        if (m,n) not in var_mem:
+            var_mem[(m,n)] = utils.calc_var(m,n)
+        var = var_mem[(m,n)]
 
         gene_scores.append(score)
         mn_vars.append(var)
@@ -126,7 +129,7 @@ def peripheral(cell):
         'metric':'peripheral',
         'cell_id':cell.cell_id,
         'annotation':cell.annotation,
-        'num_spots':tot_spots,
+        'num_spots':n,
         'gene':[g.decode() for g in genes],
         'num_gene_spots':num_genes_per_spot,
         'median_rank':obs_medians,

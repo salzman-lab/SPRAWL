@@ -18,7 +18,7 @@ class Cell:
         self.zslices = group.attrs.get('zslices')
         self.cell_id = os.path.basename(group.name)
 
-        self.tot_spots = 0
+        self.n = 0
 
         self.boundaries = {}
         self.spot_coords = {}
@@ -28,7 +28,7 @@ class Cell:
             self.spot_coords[zslice] = group['spot_coords'][zslice][:]
             self.spot_genes[zslice] = group['spot_genes'][zslice][:]
 
-            self.tot_spots += group['spot_genes'][zslice].shape[0]
+            self.n += group['spot_genes'][zslice].shape[0]
 
     @property
     def gene_counts(self):

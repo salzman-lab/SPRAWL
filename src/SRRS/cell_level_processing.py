@@ -1,6 +1,7 @@
 import multiprocessing as mp
 from . import metrics
 
+import functools
 import logging
 import sys
 
@@ -16,14 +17,17 @@ def iter_scores(cells, metric):
         'peripheral':metrics.peripheral,
     }
 
-    if metric not in available_metrics:
-        sys.stderr.write('Metric {} not found in possible metrics {}\n'.format(metric, available_metrics.keys()))
-        sys.exit(1)
+    #get the metric function or raise KeyError
+    metric_f = available_metrics[metric]
 
     logging.info('Scoring with {} cpu cores'.format(mp.cpu_count()))
 
+    manager = mp.Manager()
+    var_mem = manager.dict()
+
     with mp.Pool() as p:
-        results = p.imap_unordered(available_metrics[metric], cells)
+        f = functools.partial(metric_f, var_mem = var_mem)
+        results = p.imap_unordered(f, cells)
         for result in results:
             yield result
 

@@ -23,38 +23,62 @@ def test_iter_cells_type(dataset, request):
 
 
 @pytest.mark.parametrize('dataset', ['m1s4','m2s4'])
-def test_iter_cells_filter_tot_spots(dataset, request):
+def test_cell_gene_count(dataset, request):
+    dataset = request.getfixturevalue(dataset)
+
+    for cell in dataset.iter_cells():
+        gc_total = sum(cell.gene_counts.values())
+        assert gc_total == cell.n
+
+
+@pytest.mark.parametrize(
+    'dataset,threshold,filt_count', [
+        ('m1s4',800,6),
+        ('m2s4',800,11),
+    ]
+)
+def test_iter_cells_filter_tot_spots(dataset, threshold, filt_count, request):
     dataset = request.getfixturevalue(dataset)
 
     cells = dataset.iter_cells()
-    cells = (c for c in cells if c.tot_spots > 800)
+    cells = (c for c in cells if c.n > threshold)
 
     num_filt_cells = sum(1 for c in cells)
-    assert 0 < num_filt_cells < dataset.num_cells
+    assert num_filt_cells == filt_count
 
 
-@pytest.mark.parametrize('dataset', ['m1s4','m2s4'])
-def test_iter_cells_filter_min_unique_genes(dataset, request):
+@pytest.mark.parametrize(
+    'dataset,threshold,filt_count', [
+        ('m1s4',115,9),
+        ('m2s4',115,8),
+    ]
+)
+def test_iter_cells_filter_min_unique_genes(dataset, threshold, filt_count, request):
     dataset = request.getfixturevalue(dataset)
 
     cells = dataset.iter_cells()
-    cells = (c for c in cells if len(c.gene_counts) > 115)
+    cells = (c for c in cells if len(c.gene_counts) > threshold)
 
     num_filt_cells = sum(1 for c in cells)
-    assert 0 < num_filt_cells < dataset.num_cells
+    assert num_filt_cells == filt_count
 
 
-@pytest.mark.parametrize('dataset', ['m1s4','m2s4'])
-def test_iter_cells_filter_min_unique_genes_ge_threshold(dataset, request):
+@pytest.mark.parametrize(
+    'dataset,min_genes,min_spots_per_gene,filt_count', [
+        ('m1s4',20,10,14),
+        ('m2s4',20,10,18),
+    ]
+)
+def test_iter_cells_filter_min_unique_genes_ge_threshold(dataset, min_genes, min_spots_per_gene, filt_count, request):
     dataset = request.getfixturevalue(dataset)
 
     cells = dataset.iter_cells()
 
     #Filtering cells to have:
     #"at least 20 unique genes with each gene having at least 10 RNA spot counts"
-    cells = (c for c in cells if sum(v >= 10 for v in c.gene_counts.values()) >= 20)
+    cells = (c for c in cells if sum(v >= min_spots_per_gene for v in c.gene_counts.values()) >= min_genes)
 
     num_filt_cells = sum(1 for c in cells)
-    assert 0 < num_filt_cells < dataset.num_cells
+    assert num_filt_cells == filt_count
 
 
