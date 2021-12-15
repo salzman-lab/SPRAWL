@@ -1,6 +1,9 @@
 import pytest
 from SRRS import utils
+from SRRS import scoring
+from SRRS import cell
 import numpy as np
+import collections
 
 @pytest.mark.parametrize(
     'm,n',
@@ -43,16 +46,39 @@ def test_given_n_increasing_m_lowers_vars(n):
         (6,557),
     ]
 )
-def test_empirical_var_under_null(seed,m,n):
+def test_empirical_exp_var_under_null(seed,m,n):
     np.random.seed(seed) #<-- just so the test always fails or always succeeds
     theory_var = utils.calc_var(m,n)
 
     threshold = 5e-3
-    its = 10000
-    null_meds = [np.median(np.random.choice(n,m,replace=False)) for _ in range(its)]
+    its = 30000
+
+    #add 1 to medians to have ranks be 1-indexed
+    null_meds = [np.median(np.random.choice(n,m,replace=False))+1 for _ in range(its)]
     null_scores = [utils.score(med,n) for med in null_meds]
     emp_var = np.var(null_scores)
+    emp_exp = sum(x*f for x,f in collections.Counter(null_scores).items())/its
 
     assert abs(theory_var-emp_var) < threshold
+    assert abs(emp_exp) < threshold
+
+
+@pytest.mark.slow
+def test_iter_vars(m1s4):
+    cells = m1s4.iter_cells()
+    cells = scoring._iter_vars(cells)
+
+    for c in cells:
+        assert type(c) == cell.Cell
+        assert c.gene_vars.keys() == c.gene_counts.keys()
+
+        for i,(g,v) in enumerate(c.gene_vars.items()):
+            m = c.gene_counts[g]
+            n = c.n
+            assert v == utils.calc_var(m,n)
+
+            if i >= 1:
+                break #stop after 2 genes as a spot check for each cell
+
 
 

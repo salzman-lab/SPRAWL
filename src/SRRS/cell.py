@@ -30,10 +30,12 @@ class Cell:
 
             self.n += group['spot_genes'][zslice].shape[0]
 
-    @property
-    def gene_counts(self):
-        counts = collections.Counter(g for z in self.zslices for g in self.spot_genes[z])
-        return counts
+        #members used by other functions
+        self.gene_counts = collections.Counter(g for z in self.zslices for g in self.spot_genes[z])
+        self.genes = list(self.gene_counts.keys())
+        self.gene_vars = {}
+        self.gene_med_ranks = {}
+
 
 def plot_cell_spots_zslices(hdf5_cell, spot_colors={}, default_spot_color='grey'):
 
