@@ -1,10 +1,13 @@
 import pandas as pd
 import numpy as np
+import collections
 import random
 
 from . import scoring
+from . import metrics
+from . import utils
 
-def sim_null(cells, metric, n_its=100):
+def sim_null_peripheral(cells, within_z=True, n_its=1000, alpha=0.05):
     """
     Perform a null simulation on cells by randomly changing gene labels
 
@@ -23,40 +26,55 @@ def sim_null(cells, metric, n_its=100):
     * variance
     * num_sig_its
 
-    Avoid re-calculating variance since its slow and unnecessary
+    Calculate theoretical variance just once
+    Calculate spot ranks just once
     """
+    meds_per_cell_per_gene = {}
+
+    cells = list(scoring._iter_vars(cells)) #avoid consuming generator
+    m_n_meds = set()
+    for cell in cells:
+        meds_per_cell_per_gene[cell.cell_id] = collections.defaultdict(list)
+        _,ranks = metrics._peripheral_dist_and_rank(cell)
+        for _ in range(n_its):
+            null_permute_gene_labels(cell, within_z)
+            genes = np.array([g for z in cell.zslices for g in cell.spot_genes[z]])
+
+            for g,m in cell.gene_counts.items():
+                med = np.median(ranks[genes == g])+1
+                meds_per_cell_per_gene[cell.cell_id][g].append(med)
+                m_n_meds.add((m,cell.n,med))
+
+    #multiprocess the p_twosided calcs which are slow
+    p_cache = scoring._calc_p_twosided(list(m_n_meds))
+
+    #consolidate data
     data = {
-        'metric':metric,
+        'metric':'peripheral',
         'cell_id':[],
         'annotation':[],
         'num_spots':[],
         'gene':[],
         'num_gene_spots':[],
-        'variance':[],
+        'theory_variance':[],
+        'emp_variance':[],
         'num_sig_its':[],
     }
 
-    cells = scoring._iter_vars(cells)
-
     for cell in cells:
-        data['cell_id'].append(cell.cell_id)
-        data['annotation'].append(cell.annotation)
-        data['num_spots'].append(cell.n)
+        for g,m in cell.gene_counts.items():
+            obs_meds = meds_per_cell_per_gene[cell.cell_id][g]
 
-        sig_its_by_gene = {g:0 for g in cell.genes}
+            num_sig = sum(p_cache[(m,cell.n,med)] < alpha for med in obs_meds)
 
-        for _ in range(n_its):
-            null_permute_gene_labels(cell)
-            #score
-
-            for g,med in cell.gene_med_ranks.items():
-                p_med = 
-
-        for g,c in cell.gene_counts.items():
+            data['cell_id'].append(cell.cell_id)
+            data['annotation'].append(cell.annotation)
+            data['num_spots'].append(cell.n)
             data['gene'].append(g.decode())
-            data['num_gene_spots'].append(c)
-            data['variance'].append(cell.gene_vars[g])
-            data['num_sig_its'].append(sig_its_by_gene[g])
+            data['num_gene_spots'].append(m)
+            data['theory_variance'].append(cell.gene_vars[g])
+            data['emp_variance'].append(np.var(obs_meds))
+            data['num_sig_its'].append(num_sig)
 
     return pd.DataFrame(data)
 
@@ -64,7 +82,7 @@ def sim_null(cells, metric, n_its=100):
 def null_permute_gene_labels(cell, within_z=True):
     """
     Take as input a Cell object
-    no return, permutes in place
+    permutes in place but also returns Cell object reference
 
     within_z=True means gene labels will only be reassigned within each z-slice
     within_z=False means gene labels will be reassigned cell-wide
@@ -82,5 +100,7 @@ def null_permute_gene_labels(cell, within_z=True):
             slice_spots = len(cell.spot_genes[z])
             cell.spot_genes[z] = all_genes[i:i+slice_spots]
             i += slice_spots
+
+    return cell
 
 

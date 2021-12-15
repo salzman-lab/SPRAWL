@@ -5,7 +5,7 @@ import numpy as np
 
 @pytest.mark.parametrize('dataset',['m1s4','m2s4'])
 @pytest.mark.parametrize('seed',[1,77])
-def test_null_perms_by_zslice(dataset,seed,request):
+def test_perm_by_zslice(dataset,seed,request):
     np.random.seed(seed) #<- want to avoid random rare case where permuting doesn't change gene labels
 
     data = request.getfixturevalue(dataset)
@@ -33,7 +33,7 @@ def test_null_perms_by_zslice(dataset,seed,request):
 
 @pytest.mark.parametrize('dataset',['m1s4','m2s4'])
 @pytest.mark.parametrize('seed',[25,682])
-def test_null_perms_across_zslice(dataset,seed,request):
+def test_perm_across_zslice(dataset,seed,request):
     np.random.seed(seed) #<- want to avoid random rare case where permuting doesn't change gene labels
 
     data = request.getfixturevalue(dataset)
@@ -59,5 +59,11 @@ def test_null_perms_across_zslice(dataset,seed,request):
 
         assert not all_same
 
+
+def test_sim_null(m1s4):
+    cells = m1s4.iter_cells()
+    result = simulate.sim_null_peripheral(cells, within_z=True, n_its=10, alpha=0.05)
+
+    assert set(result['cell_id'].values) == set(m1s4.cell_ids)
 
 

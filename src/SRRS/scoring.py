@@ -1,7 +1,9 @@
-import multiprocessing as mp
 from . import metrics
 from . import utils
+
+import multiprocessing as mp
 import pandas as pd
+import numpy as np
 import functools
 import logging
 import sys
@@ -128,4 +130,56 @@ def _iter_scores(cells, metric):
         for result in results:
             yield result
 
+def _calc_p_twosided_helper(m_n_med, p_med_mem={}):
+    """
+    Helper function to calculate theoretical p_meds
+    utilizes manager.dict() shared memory
+    returns p_two_sided value for the given m_n_med input tuple
+    """
+    m,n,obs_med = m_n_med
+
+    exp_med = (n+1)/2
+
+    if (m,n,obs_med) not in p_med_mem:
+        p_med_mem[(m,n,obs_med)] = utils.p_med(m,n,obs_med)
+
+    p_eq_med = p_med_mem[(m,n,obs_med)]
+
+    if obs_med > exp_med:
+        #symmetrical, flip to be on < side
+        obs_med = 2*exp_med-obs_med
+
+    if m%2 == 1:
+        #m odd case
+        min_med = m//2+1
+        possible_meds = np.arange(min_med,obs_med)
+
+    else:
+        #m even case
+        min_med = (m+1)/2
+        possible_meds = np.arange(min_med,obs_med,0.5)
+
+    p_twosided = p_eq_med
+    for med in possible_meds:
+        if (m,n,med) not in p_med_mem:
+            p_med_mem[(m,n,med)] = utils.p_med(m,n,med)
+
+        p_twosided += 2*p_med_mem[(m,n,med)]
+
+    return p_twosided
+
+
+def _calc_p_twosided(m_n_meds):
+    """
+    multiprocessing approach to calculating utils.p_two_sided_med
+
+    input is a list of tuples like [(m,n,med), (m,n,med), ... , (m,n,med)]
+    """
+    manager = mp.Manager()
+    p_med_mem = manager.dict()
+
+    with mp.Pool() as p:
+        f = functools.partial(_calc_p_twosided_helper, p_med_mem = p_med_mem)
+        p_twosideds = p.map(f, m_n_meds) #order is maintained
+        return {k:p for k,p in zip(m_n_meds,p_twosideds)}
 

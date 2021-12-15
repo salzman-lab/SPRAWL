@@ -41,6 +41,22 @@ def peripheral(cell):
     """
     Peripheral metric
     """
+    #Use helper function to calculate distances and ranks
+    min_spot_genes,spot_ranks = _peripheral_dist_and_rank(cell)
+
+    #Iterate through unique genes to assign per-gene scores
+    for gene in cell.genes:
+        gene_inds = min_spot_genes == gene
+        gene_ranks = spot_ranks[gene_inds]
+        cell.gene_med_ranks[gene] = np.median(gene_ranks)
+
+    return cell
+
+
+def _peripheral_dist_and_rank(cell):
+    """
+    Helper function to calculate peripheral ranks
+    """
     min_periph_dists = []
     min_spot_genes = []
 
@@ -61,14 +77,6 @@ def peripheral(cell):
     min_spot_genes = np.array(min_spot_genes)
     spot_ranks = np.array(min_periph_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
 
-    #Iterate through unique genes to assign per-gene scores
-    for gene in cell.genes:
-        gene_inds = min_spot_genes == gene
-        gene_ranks = spot_ranks[gene_inds]
-        cell.gene_med_ranks[gene] = np.median(gene_ranks)
-
-    return cell
-
-
+    return min_spot_genes,spot_ranks
 
 
