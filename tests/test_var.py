@@ -63,6 +63,41 @@ def test_empirical_exp_var_under_null(seed,m,n):
     assert abs(emp_exp) < threshold
 
 
+@pytest.mark.parametrize('seed',[23])
+@pytest.mark.parametrize(
+    'm,n,med',
+    [
+        (3,6,3.5),
+        (1,10,2),
+        (1,10,8),
+        (1,10,2.5),
+        (2,10,1),
+        (2,10,7),
+        (2,10,1.5),
+        (2,10,5.5),
+        (20,1527,57.5),
+        (801,1527,98.5),
+    ]
+)
+def test_empirical_p_med_under_null(seed,m,n,med):
+    np.random.seed(seed) #<-- just so the test always fails or always succeeds
+
+    threshold = 5e-3
+    its = 30000
+
+    null_meds = [np.median(np.random.choice(n,m,replace=False))+1 for _ in range(its)]
+
+    theory_p_med = utils.p_med(m,n,med)
+    emp_p_med = sum(m == med for m in null_meds)/its
+    assert abs(theory_p_med-emp_p_med) < threshold
+
+    theory_p_two_sided = utils.p_two_sided_med(m,n,med)
+    emp_p_le = sum(m < med for m in null_meds)/its
+    emp_p_ge = sum(m > med for m in null_meds)/its
+    emp_p_two_sided = 2*(min(emp_p_le, emp_p_ge)+emp_p_med)
+    assert abs(theory_p_two_sided-emp_p_two_sided) < threshold
+
+
 @pytest.mark.slow
 def test_iter_vars(m1s4):
     cells = m1s4.iter_cells()

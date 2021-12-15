@@ -2,9 +2,11 @@ import pandas as pd
 import numpy as np
 import random
 
-def sim_null(cell, metric, n_its=100):
+from . import scoring
+
+def sim_null(cells, metric, n_its=100):
     """
-    Perform a null simulation on a cell by randomly changing gene labels
+    Perform a null simulation on cells by randomly changing gene labels
 
     Steps
     1. Permute gene labels
@@ -23,30 +25,38 @@ def sim_null(cell, metric, n_its=100):
 
     Avoid re-calculating variance since its slow and unnecessary
     """
-    gc = cell.gene_counts
-
     data = {
         'metric':metric,
-        'cell_id':cell.cell_id,
-        'annotation':cell.annotation,
-        'num_spots':cell.n,
+        'cell_id':[],
+        'annotation':[],
+        'num_spots':[],
         'gene':[],
         'num_gene_spots':[],
         'variance':[],
         'num_sig_its':[],
     }
 
-    for g,c in cell.gene_counts.items():
-        data['gene'].append(g)
-        data['num_gene_spots'].append(c)
-        data['variance'].append(0) #???
-        sig_its = 0
+    cells = scoring._iter_vars(cells)
+
+    for cell in cells:
+        data['cell_id'].append(cell.cell_id)
+        data['annotation'].append(cell.annotation)
+        data['num_spots'].append(cell.n)
+
+        sig_its_by_gene = {g:0 for g in cell.genes}
 
         for _ in range(n_its):
             null_permute_gene_labels(cell)
+            #score
 
+            for g,med in cell.gene_med_ranks.items():
+                p_med = 
 
-            pass
+        for g,c in cell.gene_counts.items():
+            data['gene'].append(g.decode())
+            data['num_gene_spots'].append(c)
+            data['variance'].append(cell.gene_vars[g])
+            data['num_sig_its'].append(sig_its_by_gene[g])
 
     return pd.DataFrame(data)
 

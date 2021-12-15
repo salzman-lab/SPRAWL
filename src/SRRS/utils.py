@@ -5,6 +5,7 @@ import functools
 import scipy
 import math
 
+p_med_cache = {}
 ncr_mem = {}
 factors_cache = {}
 
@@ -37,74 +38,6 @@ def ncr(n, r):
     return ncr_mem[(n,r)]
 
 
-def partial_factor(x, primes=[2,3,5,7,11,13,17,19,23,29]):
-    """
-    Reduces x into prime factors up to given list
-    returns Counter of factors
-
-    x = functools.reduce(op.mul,(k**e for k,e in factors.items()),1)
-    """
-    orig_x = x
-    if x not in factors_cache:
-
-        factors = collections.Counter()
-        for prime in primes:
-            if prime > x:
-                break
-            while x%prime == 0:
-                factors[prime] += 1
-                x //= prime
-
-        factors[x] += 1
-        factors_cache[orig_x] = factors
-
-    return factors_cache[orig_x]
-
-
-def ncr_op(numers=[(1,1)], denoms=[(1,1)]):
-    """
-    Simplify ncrs before doing division/multiplication
-
-    expects numers/denoms lists to be of tuples such as [(n1,r1), ... ]
-    """
-    val_exps = collections.Counter()
-
-    #Add the numerators into the Counter
-    for n,r in numers:
-        r = min(r, n-r)
-        val_exps.update(range(n,n-r,-1))
-        val_exps.subtract(range(2,r+1))
-
-    #Add the denominators into the Counter
-    for n,r in denoms:
-        r = min(r, n-r)
-        val_exps.subtract(range(n,n-r,-1))
-        val_exps.update(range(2,r+1))
-
-    #Partial factor the non-zero entries to simplify fraction
-    factors = collections.Counter()
-    for val,freq in val_exps.items():
-        if freq == 0:
-            continue
-
-        for factor,fac_freq in partial_factor(val).items():
-            factors[factor] += fac_freq*freq
-
-    #Separate into num and denom again to avoid small fractions
-    fnc = {}
-    fdc = {}
-    for k,e in factors.items():
-        if e > 0:
-            fnc[k] = e
-        elif e < 0:
-            fdc[k] = -e
-
-    numer = functools.reduce(op.mul, (k**e for k,e in fnc.items()), 1)
-    denom = functools.reduce(op.mul, (k**e for k,e in fdc.items()), 1)
-
-    return numer/denom
-
-
 def p_med(m,n,obs_med):
     """
     Calculates the probability of observing the median value obs_med
@@ -132,14 +65,18 @@ def p_med(m,n,obs_med):
 
     Now we just need to calculate the probability that the first rank equals Rr-Rl within the new bounds
     """
-    numers = []
-    denoms = []
+    if (m,n,obs_med) in p_med_cache:
+        return p_med_cache[(m,n,obs_med)]
 
     if m%2 == 1:
         #Odd case
-        obs_med = int(obs_med)
-        k = (m+1)//2
-        p = ncr(obs_med-1,k-1)*ncr(n-obs_med,m-k)/ncr(n,m)
+        if not obs_med == int(obs_med):
+            #Odd m cant have fractional median
+            p = 0
+        else:
+            obs_med = int(obs_med)
+            k = (m+1)//2
+            p = ncr(obs_med-1,k-1)*ncr(n-obs_med,m-k)/ncr(n,m)
 
     else:
         #Even case
@@ -168,6 +105,7 @@ def p_med(m,n,obs_med):
             Rl -= 1
             Rr += 1
 
+    p_med_cache[(m,n,obs_med)] = p
     return p
 
 def _calc_var_helper(m,n):
@@ -189,6 +127,58 @@ def _calc_var_helper(m,n):
     var = 2*sum(p_med(m,n,med)*score(med,n)**2 for med in possible_meds)
 
     return var
+
+
+def p_two_sided_med(m,n,obs_med):
+    """
+    Calculates the two-sided p-value
+    of observing such an extreme median score
+
+    Assume
+        there are 7 total spots (n = 7)
+        there are 3 gene spots (m = 3)
+        the obs median is 2 (obs_med = 2)
+
+    There is only one way for this to occur
+    the ranks must be [1,2,3] so the p_two_sided_med = p_med(3,7,2)
+
+    There is symmetry, the following situation has the same probability
+        7 total spots (n = 7)
+        3 gene spots (m = 3)
+        the obs median is 6 (obs_med = 6)
+
+    Now
+        7 total spots (n = 7)
+        3 gene spots (m = 3)
+        the obs median is 3 (obs_med = 3)
+
+    then p_two_sided_med = p_med(3,7,2)+p_med(3,7,3)
+
+    the symmetry is accounted for by flipping larger observed medians to be
+    on the smaller side, the same distance from the expected median
+
+    then the final p-value is multiplied by 2
+    """
+    exp_med = (n+1)/2
+    p_eq_med = p_med(m,n,obs_med)
+
+    if obs_med > exp_med:
+        #symmetrical, flip to be on < side
+        obs_med = 2*exp_med-obs_med
+
+    if m%2 == 1:
+        #m odd case
+        min_med = m//2+1
+        possible_meds = np.arange(min_med,obs_med)
+
+    else:
+        #m even case
+        min_med = (m+1)/2
+        possible_meds = np.arange(min_med,obs_med,0.5)
+
+    p_twosided = 2*(sum(p_med(m,n,med) for med in possible_meds)+p_eq_med)
+    return p_twosided
+
 
 
 def calc_var(m,n,approx_evens=False):
