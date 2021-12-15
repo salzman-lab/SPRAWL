@@ -60,8 +60,21 @@ def _sequential_iter_scores(cells, metric):
         sys.exit(1)
 
     for cell in cells:
-        result = available_metrics[metric](cell)
-        yield result
+        cell = _cell_var(cell)
+        cell = available_metrics[metric](cell)
+
+        df = pd.DataFrame({
+            'metric':metric,
+            'cell_id':cell.cell_id,
+            'annotation':cell.annotation,
+            'num_spots':cell.n,
+            'gene':[g.decode() for g in cell.genes],
+            'num_gene_spots':[cell.gene_counts[g] for g in cell.genes],
+            'median_rank':[cell.gene_med_ranks[g] for g in cell.genes],
+            'score':[utils.score(cell.gene_med_ranks[g],cell.n) for g in cell.genes],
+            'variance':[cell.gene_vars[g] for g in cell.genes],
+        })
+        yield df
 
 
 def _cell_var(cell, var_mem={}):
