@@ -163,7 +163,7 @@ def p_two_sided_med(m,n,obs_med):
     p_eq_med = p_med(m,n,obs_med)
 
     if obs_med > exp_med:
-        #symmetrical, flip to be on < side
+        #symmetrical distribution around expected median, flip to be on < side
         obs_med = 2*exp_med-obs_med
 
     if m%2 == 1:

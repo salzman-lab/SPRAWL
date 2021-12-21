@@ -98,6 +98,34 @@ def test_empirical_p_med_under_null(seed,m,n,med):
     assert abs(theory_p_two_sided-emp_p_two_sided) < threshold
 
 
+@pytest.mark.parametrize(
+    'm_n_meds',[
+        ((4,50),(1,4,20.5,30.5)),
+        ((3,50),(1,4,27,49)),
+        ((5,150),(18,99)),
+        ((20,1527),(57.5,)),
+    ],
+)
+def test_p_twosided_helper(m_n_meds):
+    ps = scoring._calc_p_twosided_helper(m_n_meds)
+
+    np.random.seed(1)
+    its = 30000
+    threshold = 5e-3
+    m,n = m_n_meds[0]
+    null_meds = [np.median(np.random.choice(n,m,replace=False))+1 for _ in range(its)]
+
+    for (m,n,med),p in ps.items():
+        emp_p_med = sum(m == med for m in null_meds)/its
+        emp_p_le = sum(m < med for m in null_meds)/its
+        emp_p_ge = sum(m > med for m in null_meds)/its
+        emp_p_two_sided = 2*(min(emp_p_le, emp_p_ge)+emp_p_med)
+
+        assert abs(emp_p_two_sided-p) < threshold
+
+
+
+
 @pytest.mark.slow
 def test_iter_vars(m1s4):
     cells = m1s4.iter_cells()

@@ -14,7 +14,7 @@ def sim_null_peripheral(cells, within_z=True, n_its=1000, alpha=0.05):
     Steps
     1. Permute gene labels
     2. Calculate SRRS scores using metric
-    3. Count how many genes are
+    3. Count how many genes have significant peripheral distributions
 
     Return pandas dataframe with the following columns
     * metric
@@ -24,17 +24,21 @@ def sim_null_peripheral(cells, within_z=True, n_its=1000, alpha=0.05):
     * gene
     * num_gene_spots
     * variance
+    * num_its
+    * alpha
     * num_sig_its
 
     Calculate theoretical variance just once
-    Calculate spot ranks just once
+    Calculate spot ranks just once, then permute spots
     """
     meds_per_cell_per_gene = {}
-
     cells = list(scoring._iter_vars(cells)) #avoid consuming generator
-    m_n_meds = set()
+
+    #make all the permutations and store the results
+    m_n_meds = collections.defaultdict(set)
     for cell in cells:
         meds_per_cell_per_gene[cell.cell_id] = collections.defaultdict(list)
+        n = cell.n
         _,ranks = metrics._peripheral_dist_and_rank(cell)
         for _ in range(n_its):
             null_permute_gene_labels(cell, within_z)
@@ -43,10 +47,11 @@ def sim_null_peripheral(cells, within_z=True, n_its=1000, alpha=0.05):
             for g,m in cell.gene_counts.items():
                 med = np.median(ranks[genes == g])+1
                 meds_per_cell_per_gene[cell.cell_id][g].append(med)
-                m_n_meds.add((m,cell.n,med))
+                m_n_meds[(m,n)].add(med)
 
     #multiprocess the p_twosided calcs which are slow
-    p_cache = scoring._calc_p_twosided(list(m_n_meds))
+    p_cache = scoring._calc_p_twosided(m_n_meds)
+
 
     #consolidate data
     data = {
@@ -58,6 +63,8 @@ def sim_null_peripheral(cells, within_z=True, n_its=1000, alpha=0.05):
         'num_gene_spots':[],
         'theory_variance':[],
         'emp_variance':[],
+        'num_its':[],
+        'alpha':[],
         'num_sig_its':[],
     }
 
@@ -74,6 +81,8 @@ def sim_null_peripheral(cells, within_z=True, n_its=1000, alpha=0.05):
             data['num_gene_spots'].append(m)
             data['theory_variance'].append(cell.gene_vars[g])
             data['emp_variance'].append(np.var(obs_meds))
+            data['num_its'].append(n_its)
+            data['alpha'].append(alpha)
             data['num_sig_its'].append(num_sig)
 
     return pd.DataFrame(data)

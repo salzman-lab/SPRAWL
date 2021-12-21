@@ -130,56 +130,54 @@ def _iter_scores(cells, metric):
         for result in results:
             yield result
 
-def _calc_p_twosided_helper(m_n_med, p_med_mem={}):
+def _calc_p_twosided_helper(m_n_meds):
     """
     Helper function to calculate theoretical p_meds
-    utilizes manager.dict() shared memory
-    returns p_two_sided value for the given m_n_med input tuple
-    """
-    m,n,obs_med = m_n_med
 
+    Input m_n_meds is a tuple of ((m,n),set(med1,med2,med3,...))
+    Output is a dict d[(m,n,med)] = two_sided_p
+    """
+    (m,n),obs_meds = m_n_meds
+    obs_meds = list(obs_meds) #avoid order changes in set
+    ps = {(m,n,obs_med):0 for obs_med in obs_meds} #init the return dict
     exp_med = (n+1)/2
 
-    if (m,n,obs_med) not in p_med_mem:
-        p_med_mem[(m,n,obs_med)] = utils.p_med(m,n,obs_med)
-
-    p_eq_med = p_med_mem[(m,n,obs_med)]
-
-    if obs_med > exp_med:
-        #symmetrical, flip to be on < side
-        obs_med = 2*exp_med-obs_med
+    #symmetrical, flip to be on < side
+    flipped_meds = [n+1-obs_med if obs_med > exp_med else obs_med for obs_med in obs_meds]
+    max_med = max(flipped_meds)+1
 
     if m%2 == 1:
         #m odd case
         min_med = m//2+1
-        possible_meds = np.arange(min_med,obs_med)
+        possible_meds = np.arange(min_med,max_med)
 
     else:
         #m even case
         min_med = (m+1)/2
-        possible_meds = np.arange(min_med,obs_med,0.5)
+        possible_meds = np.arange(min_med,max_med,0.5)
 
-    p_twosided = p_eq_med
+    p = 0
     for med in possible_meds:
-        if (m,n,med) not in p_med_mem:
-            p_med_mem[(m,n,med)] = utils.p_med(m,n,med)
+        med_p = utils.p_med(m,n,med)
+        p += med_p
 
-        p_twosided += 2*p_med_mem[(m,n,med)]
+        if med in flipped_meds:
+            ps[(m,n,med)] = 2*p #multiply by two since two-sided
+            ps[(m,n,n+1-med)] = 2*p #multiply by two since two-sided
 
-    return p_twosided
+    return ps
 
 
 def _calc_p_twosided(m_n_meds):
     """
     multiprocessing approach to calculating utils.p_two_sided_med
 
-    input is a list of tuples like [(m,n,med), (m,n,med), ... , (m,n,med)]
-    """
-    manager = mp.Manager()
-    p_med_mem = manager.dict()
+    input is a dict of set like d[(m,n)] = set(med1,med2)
 
+    output is a dict d[(m,n,med)] = p
+    """
     with mp.Pool() as p:
-        f = functools.partial(_calc_p_twosided_helper, p_med_mem = p_med_mem)
-        p_twosideds = p.map(f, m_n_meds) #order is maintained
-        return {k:p for k,p in zip(m_n_meds,p_twosideds)}
+        p_twosided_ds = p.map(_calc_p_twosided_helper, m_n_meds.items())
+        d = {k: v for d in p_twosided_ds for k, v in d.items()}
+        return d
 

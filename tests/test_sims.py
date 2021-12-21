@@ -1,5 +1,5 @@
 import pytest
-from SRRS import simulate
+from SRRS import simulate, scoring
 import collections
 import numpy as np
 
@@ -60,6 +60,16 @@ def test_perm_across_zslice(dataset,seed,request):
         assert not all_same
 
 
+
+def test_single_cell_sim_null(m1s4):
+    cells = [next(m1s4.iter_cells())]
+    result = simulate.sim_null_peripheral(cells, within_z=True, n_its=10, alpha=0.05)
+
+    assert result['cell_id'].nunique() == 1
+    assert result['cell_id'].unique()[0] == cells[0].cell_id
+
+
+@pytest.mark.slow
 def test_sim_null(m1s4):
     cells = m1s4.iter_cells()
     result = simulate.sim_null_peripheral(cells, within_z=True, n_its=10, alpha=0.05)

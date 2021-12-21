@@ -17,6 +17,10 @@ class HDF5:
     def __init__(self, hdf5_path):
         self.path = hdf5_path
 
+    def __repr__(self):
+        str_repr = 'HDF5 {}'.format(self.path)
+        return str_repr
+
     def fhandle(func):
         """
         Decorator to open and close hdf5
