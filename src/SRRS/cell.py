@@ -40,7 +40,7 @@ class Cell:
         #gene_vars will correspond with unique genes in the cell in alphabetical order
         self.gene_vars = {}
         if 'gene_vars' in group:
-            for i,gene_var in group['gene_vars']:
+            for i,gene_var in enumerate(group['gene_vars']):
                 self.gene_vars[self.genes[i]] = gene_var
 
 

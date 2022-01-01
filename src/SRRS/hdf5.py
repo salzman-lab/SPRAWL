@@ -89,21 +89,20 @@ class HDF5:
         save the per gene per cell variances to the hdf5 file
         cannot be easily multiplexed
 
-        yields an iterator of cells in case they are needed later
+        returns an iterator of cells in case they are needed later
         """
         with h5py.File(self.path,'a') as _f:
-           for cell in cells:
-                group = f['cells'][cell.cell_id]
+            for cell in cells:
+                group = _f['cells'][cell.cell_id]
 
                 #delete gene vars dataset if already present
                 if 'gene_vars' in group:
                     del group['gene_vars']
-              
+
                 #write out gene vars in gene-name (key) sorted order
                 #python 3.7 dictionaries are guarenteed sorted by key
                 group.create_dataset('gene_vars', data=list(cell.gene_vars.values()))
 
 
-                yield cell
-
+        return cells
 

@@ -3,7 +3,7 @@ import os
 import shutil
 
 from SRRS import vignette, hdf5
-    
+
 @pytest.fixture
 def m1s4():
     return vignette.m1s4_hdf5()
