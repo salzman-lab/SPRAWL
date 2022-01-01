@@ -182,6 +182,6 @@ plt.suptitle(gene)
 plt.tight_layout()
 
 #plt.show()
-plt.savefig('/oak/stanford/groups/horence/rob/isoform_localizations/SRRS/plotting/no_min_sample_boxplots/{}.png'.format(gene))
+plt.savefig('no_min_sample_boxplots/{}.png'.format(gene))
 plt.close()
 

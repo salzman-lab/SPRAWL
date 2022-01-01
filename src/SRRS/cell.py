@@ -20,6 +20,7 @@ class Cell:
 
         self.n = 0
 
+        #boundaries, spot_coords, and spot_gene groups must always be present
         self.boundaries = {}
         self.spot_coords = {}
         self.spot_genes = {}
@@ -32,9 +33,16 @@ class Cell:
 
         #members used by other functions
         self.gene_counts = collections.Counter(g for z in self.zslices for g in self.spot_genes[z])
-        self.genes = list(self.gene_counts.keys())
-        self.gene_vars = {}
+        self.genes = sorted(list(self.gene_counts.keys()))
         self.gene_med_ranks = {}
+
+        #theoretical median gene_vars might be present if the calculation has been done prior
+        #gene_vars will correspond with unique genes in the cell in alphabetical order
+        self.gene_vars = {}
+        if 'gene_vars' in group:
+            for i,gene_var in group['gene_vars']:
+                self.gene_vars[self.genes[i]] = gene_var
+
 
 
 def plot_cell_spots_zslices(hdf5_cell, spot_colors={}, default_spot_color='grey'):
