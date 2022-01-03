@@ -100,8 +100,8 @@ class HDF5:
                     del group['gene_vars']
 
                 #write out gene vars in gene-name (key) sorted order
-                #python 3.7 dictionaries are guarenteed sorted by key
-                group.create_dataset('gene_vars', data=list(cell.gene_vars.values()))
+                var_list = [v for g,v in sorted(cell.gene_vars.items())]
+                group.create_dataset('gene_vars', data=var_list)
 
 
         return cells

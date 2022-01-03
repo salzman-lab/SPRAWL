@@ -37,6 +37,7 @@ def test_save_gene_vars(dataset, request):
 
     #calculate gene vars (slow)
     cells = list(scoring._iter_vars(cells))
+    pre_cache_vars = {cell.cell_id:cell.gene_vars for cell in cells}
     num_gene_var_entries = sum(len(cell.gene_vars) for cell in cells)
     assert num_gene_var_entries > 0
 
@@ -45,7 +46,15 @@ def test_save_gene_vars(dataset, request):
 
     #test gene vars are read in
     cells = list(sample.iter_cells())
+    post_cache_vars = {cell.cell_id:cell.gene_vars for cell in cells}
     num_gene_var_entries = sum(len(cell.gene_vars) for cell in cells)
     assert num_gene_var_entries > 0
 
+
+    #test the vars agree with each other before and after caching
+    assert pre_cache_vars.keys() == post_cache_vars.keys()
+
+    for cell_id,pre_d in pre_cache_vars.items():
+        post_d = post_cache_vars[cell_id]
+        assert pre_d == post_d
 
