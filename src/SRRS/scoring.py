@@ -85,6 +85,10 @@ def _cell_var(cell, var_mem={}):
     utilizes manager.dict() shared memory
     adds gene_vars as a member of the cell object
     """
+    #If the gene_vars are already calculated, just return the cell
+    if cell.gene_vars:
+        return cell
+
     n = cell.n
     for g,m in cell.gene_counts.items():
         if (m,n) not in var_mem:
