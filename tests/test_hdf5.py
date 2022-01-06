@@ -31,7 +31,7 @@ def test_iter_cells(dataset, request):
 def test_save_gene_vars(dataset, request):
     #check gene vars are not already set
     sample = request.getfixturevalue(dataset)
-    cells = list(sample.iter_cells())
+    cells = sample.cells()
     num_gene_var_entries = sum(len(cell.gene_vars) for cell in cells)
     assert num_gene_var_entries == 0
 
@@ -45,7 +45,7 @@ def test_save_gene_vars(dataset, request):
     sample.save_gene_vars(cells)
 
     #test gene vars are read in
-    cells = list(sample.iter_cells())
+    cells = sample.cells()
     post_cache_vars = {cell.cell_id:cell.gene_vars for cell in cells}
     num_gene_var_entries = sum(len(cell.gene_vars) for cell in cells)
     assert num_gene_var_entries > 0

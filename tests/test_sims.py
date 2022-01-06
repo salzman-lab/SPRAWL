@@ -60,6 +60,21 @@ def test_perm_across_zslice(dataset,seed,request):
         assert not all_same
 
 
+@pytest.mark.xfail
+@pytest.mark.parametrize('dataset',['m1s4','m2s4'])
+@pytest.mark.parametrize('metric',['peripheral'])
+@pytest.mark.parametrize('seed',[25])
+def test_gene_celltype_sim_null(dataset,metric,seed,request):
+    np.random.seed(seed)
+    sample = request.getfixturevalue(dataset)
+    cells = sample.iter_cells()
+
+    perm_df = simulate.gene_celltype_sim_null(cells, metric, within_z=True, n_its=10)
+
+    #Need to figure out how to test the results, xfail for now
+    assert False
+
+
 
 def test_single_cell_sim_null(m1s4):
     cells = [next(m1s4.iter_cells())]

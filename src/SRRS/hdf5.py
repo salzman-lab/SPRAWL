@@ -74,6 +74,18 @@ class HDF5:
         return len(self.genes)
 
 
+    def cells(self):
+        """
+        return a list of Cell objects
+        """
+        cells = []
+        with h5py.File(self.path,'r') as _f:
+            for cell_id,cell_group in _f['cells'].items():
+                cells.append(cell.Cell(cell_group))
+
+        return cells
+
+
     def iter_cells(self):
         """
         produce an iterator of Cell objects

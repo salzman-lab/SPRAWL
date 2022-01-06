@@ -140,8 +140,8 @@ def test_iter_vars(m1s4):
             n = c.n
             assert v == utils.calc_var(m,n)
 
-            if i >= 1:
-                break #stop after 2 genes as a spot check for each cell
+            if i >= 5:
+                break #stop after 5 genes as a spot check for each cell
 
 
 

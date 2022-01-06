@@ -7,7 +7,7 @@ from . import scoring
 from . import metrics
 from . import utils
 
-def gene_celltype_sim_null(cells, metric, within_z=True, n_its=1000, alpha=0.05):
+def gene_celltype_sim_null(cells, metric, within_z=True, n_its=1000):
     """
     Perform a null simulation on cells by randomly changing gene labels
 
@@ -21,43 +21,31 @@ def gene_celltype_sim_null(cells, metric, within_z=True, n_its=1000, alpha=0.05)
     3. Group cells by cell-type
     4. Count how many permutations resulted in significant peripheral distributions
 
-    Return pandas dataframe with the following columns
-    * metric
-    * gene
-    * annotation
-    * median_gene_spots
-    * median_total_spots
-    * num_cells
-    * alpha
-    * z_score
-    * two_sided_p
-
+    Return concat pandas dataframe of gene_celltype_scoring over the multiple iterations
     """
 
     cells = list(scoring._iter_vars(cells)) #avoid consuming iterator
 
-    data = {
-        'metric':[],
-        'gene':[],
-        'annotation':[],
-        'median_gene_spots':[],
-        'median_total_spots':[],
-        'num_cells':[],
-        'alpha':[],
-        'z_score':[],
-        'two_sided_p':[],
-    }
+    ret_df = pd.DataFrame()
 
     #iterate through the permuatations
-    for _ in range(n_its):
+    for it_num in range(n_its):
 
         #permute all the cell gene labels
         for cell in cells:
             null_permute_gene_labels(cell, within_z)
 
-        #score
-        scoring_df = pd.concat(scoring.iter_scores(cells, metric))
+        #score each gene/cell pair
+        srrs_df = pd.concat(scoring.iter_scores(cells, metric))
 
+        #calculate stats for each gene/celltype pair
+        agg_df = scoring.gene_celltype_scoring(srrs_df)
+        agg_df['it_num'] = it_num
+
+        #concat results to growing table
+        ret_df = pd.concat((ret_df,agg_df))
+
+    return ret_df
 
 
 

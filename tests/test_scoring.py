@@ -43,12 +43,17 @@ def test_sequential_scoring_metrics_m1s4(dataset, metric, request):
 def test_gene_celltype_scoring(dataset, metric, request):
     dataset = request.getfixturevalue(dataset)
 
-    cells = dataset.iter_cells()
+    cells = dataset.cells()
     score_iter = SRRS.iter_scores(cells, metric=metric)
     srrs_df = pd.concat(score_iter)
 
     agg_df = scoring.gene_celltype_scoring(srrs_df)
 
-    assert False
+    #Each gene can be present in at most nc cells, the number of input cells
+    assert agg_df.groupby('gene')['num_cells'].apply(lambda nc: nc < len(cells)).all()
+
+    #TODO more asserts
+
+
 
 

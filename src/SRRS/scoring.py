@@ -28,7 +28,7 @@ def iter_scores(cells, metric):
          'score' value ranging from -1 to 1
          'variance' theoretical variance under the null
     """
-    logging.info('Scoring with {} cpu cores'.format(mp.cpu_count()))
+    logging.debug('Scoring with {} cpu cores'.format(mp.cpu_count()))
 
     cells = _iter_vars(cells)
     cells = _iter_scores(cells,metric)
@@ -107,10 +107,11 @@ def gene_celltype_scoring(srrs_df):
     srrs_df['bh_corrected_two_sided_p'] = dedup_df['bh_corrected_two_sided_p']
     srrs_df = srrs_df.reset_index()
 
-    #groupby sample/gene/ontology with bh_p
+    #groupby sample/gene/annotation with bh_p
     agg_df = srrs_df.groupby(gb_cols).agg(
+        metric = ('metric','first'),
         gene = ('gene','first'),
-        ontology = ('ontology','first'),
+        annotation = ('annotation','first'),
         num_cells = ('cell_id','nunique'),
         med_gene_spots = ('num_gene_spots','median'),
         med_spots = ('num_spots','median'),
@@ -191,7 +192,7 @@ def _iter_vars(cells):
             yield result
 
 
-def _iter_scores(cells, metric):
+def _iter_scores(cells, metric_name):
     """
     Helper function
     Apply the chosen scoring metric to each cell
@@ -203,13 +204,14 @@ def _iter_scores(cells, metric):
     }
 
     #get the metric function or raise KeyError
-    metric_f = available_metrics[metric]
+    metric_f = available_metrics[metric_name]
 
     #multiplex the scoring
     with mp.Pool() as p:
         results = p.imap_unordered(metric_f, cells)
         for result in results:
             yield result
+
 
 def _calc_p_twosided_helper(m_n_meds):
     """
