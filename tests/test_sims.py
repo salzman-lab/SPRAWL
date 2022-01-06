@@ -63,7 +63,7 @@ def test_perm_across_zslice(dataset,seed,request):
 
 def test_single_cell_sim_null(m1s4):
     cells = [next(m1s4.iter_cells())]
-    result = simulate.sim_null_peripheral(cells, within_z=True, n_its=10, alpha=0.05)
+    result = simulate.gene_cell_sim_null_peripheral(cells, within_z=True, n_its=10, alpha=0.05)
 
     assert result['cell_id'].nunique() == 1
     assert result['cell_id'].unique()[0] == cells[0].cell_id
@@ -72,7 +72,7 @@ def test_single_cell_sim_null(m1s4):
 @pytest.mark.slow
 def test_sim_null(m1s4):
     cells = m1s4.iter_cells()
-    result = simulate.sim_null_peripheral(cells, within_z=True, n_its=10, alpha=0.05)
+    result = simulate.gene_cell_sim_null_peripheral(cells, within_z=True, n_its=10, alpha=0.05)
 
     assert set(result['cell_id'].values) == set(m1s4.cell_ids)
 

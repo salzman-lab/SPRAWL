@@ -1,5 +1,8 @@
 import pytest
 import SRRS
+from SRRS import scoring
+
+import pandas as pd
 
 @pytest.mark.slow
 @pytest.mark.parametrize('dataset', ['m1s4','m2s4'])
@@ -34,5 +37,18 @@ def test_sequential_scoring_metrics_m1s4(dataset, metric, request):
     genes = list(set(g for df in score_dfs for g in df.gene.unique()))
     assert sorted(genes) == sorted(dataset.genes)
 
+
+@pytest.mark.parametrize('dataset', ['m1s4','m2s4'])
+@pytest.mark.parametrize('metric', ['peripheral'])
+def test_gene_celltype_scoring(dataset, metric, request):
+    dataset = request.getfixturevalue(dataset)
+
+    cells = dataset.iter_cells()
+    score_iter = SRRS.iter_scores(cells, metric=metric)
+    srrs_df = pd.concat(score_iter)
+
+    agg_df = scoring.gene_celltype_scoring(srrs_df)
+
+    assert False
 
 

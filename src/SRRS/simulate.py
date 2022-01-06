@@ -7,9 +7,66 @@ from . import scoring
 from . import metrics
 from . import utils
 
-def sim_null_peripheral(cells, within_z=True, n_its=1000, alpha=0.05):
+def gene_celltype_sim_null(cells, metric, within_z=True, n_its=1000, alpha=0.05):
     """
     Perform a null simulation on cells by randomly changing gene labels
+
+    For each gene/celltype pair, calculate how many have more extreme scores than
+    expected by chance
+
+    Steps
+    0. For each iteration
+    1. Permute gene labels
+    2. Calculate SRRS scores per gene/cell using metric
+    3. Group cells by cell-type
+    4. Count how many permutations resulted in significant peripheral distributions
+
+    Return pandas dataframe with the following columns
+    * metric
+    * gene
+    * annotation
+    * median_gene_spots
+    * median_total_spots
+    * num_cells
+    * alpha
+    * z_score
+    * two_sided_p
+
+    """
+
+    cells = list(scoring._iter_vars(cells)) #avoid consuming iterator
+
+    data = {
+        'metric':[],
+        'gene':[],
+        'annotation':[],
+        'median_gene_spots':[],
+        'median_total_spots':[],
+        'num_cells':[],
+        'alpha':[],
+        'z_score':[],
+        'two_sided_p':[],
+    }
+
+    #iterate through the permuatations
+    for _ in range(n_its):
+
+        #permute all the cell gene labels
+        for cell in cells:
+            null_permute_gene_labels(cell, within_z)
+
+        #score
+        scoring_df = pd.concat(scoring.iter_scores(cells, metric))
+
+
+
+
+def gene_cell_sim_null_peripheral(cells, within_z=True, n_its=1000, alpha=0.05):
+    """
+    Perform a null simulation on cells by randomly changing gene labels
+
+    For each gene/cell pair, calculate how many have more extreme scores than
+    expected by chance
 
     Steps
     1. Permute gene labels
