@@ -4,10 +4,13 @@
 *.out
 *.sqlite
 *.txt
+work/
 
 # Log files/implementation files
 slurm*
 *.sbatch
+nextflow*
+.nextflow*
 
 # Temporary files
 *.swp

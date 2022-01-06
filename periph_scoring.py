@@ -8,7 +8,7 @@ import os
 def main():
     prog_start = time.time()
     hdf5_path = sys.argv[1]
-    out_name = os.path.basename(hdf5_path).split('.')[0]+'_no_drop_periph_scores.csv'
+    out_name = os.path.basename(hdf5_path).split('.')[0]+'_from_cache'
 
     sample = SRRS.HDF5(hdf5_path)
     cells = sample.iter_cells()
