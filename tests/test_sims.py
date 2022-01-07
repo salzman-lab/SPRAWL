@@ -1,6 +1,7 @@
 import pytest
 from SRRS import simulate, scoring
 import collections
+import pandas as pd
 import numpy as np
 
 @pytest.mark.parametrize('dataset',['m1s4','m2s4'])
@@ -69,7 +70,9 @@ def test_gene_celltype_sim_null(dataset,metric,seed,request):
     sample = request.getfixturevalue(dataset)
     cells = sample.iter_cells()
 
-    perm_df = simulate.gene_celltype_sim_null(cells, metric, within_z=True, n_its=10)
+    perm_df_iter = simulate.gene_celltype_sim_null(cells, metric, within_z=True, n_its=10)
+    perm_df = pd.concat(perm_df_iter)
+    perm_df.shape #forcing perm_df_iter to run
 
     #Need to figure out how to test the results, xfail for now
     assert False

@@ -21,12 +21,10 @@ def gene_celltype_sim_null(cells, metric, within_z=True, n_its=1000):
     3. Group cells by cell-type
     4. Count how many permutations resulted in significant peripheral distributions
 
-    Return concat pandas dataframe of gene_celltype_scoring over the multiple iterations
+    yield pandas dataframes of gene_celltype_scoring over the multiple iterations
     """
 
     cells = list(scoring._iter_vars(cells)) #avoid consuming iterator
-
-    ret_df = pd.DataFrame()
 
     #iterate through the permuatations
     for it_num in range(n_its):
@@ -42,10 +40,7 @@ def gene_celltype_sim_null(cells, metric, within_z=True, n_its=1000):
         agg_df = scoring.gene_celltype_scoring(srrs_df)
         agg_df['it_num'] = it_num
 
-        #concat results to growing table
-        ret_df = pd.concat((ret_df,agg_df))
-
-    return ret_df
+        yield agg_df
 
 
 
