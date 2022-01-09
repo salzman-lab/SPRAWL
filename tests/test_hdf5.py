@@ -26,7 +26,7 @@ def test_iter_cells(dataset, request):
     anns = [c.annotation for c in dataset.iter_cells()]
     assert anns == dataset.annotations
 
-
+@pytest.mark.slow
 @pytest.mark.parametrize('dataset', ['temp_m1s4','temp_m2s4'])
 def test_save_gene_vars(dataset, request):
     #check gene vars are not already set

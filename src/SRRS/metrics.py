@@ -80,3 +80,61 @@ def _peripheral_dist_and_rank(cell):
     return min_spot_genes,spot_ranks
 
 
+def radial(cell):
+    """
+    Radial metric
+    """
+    #Use helper function to calculate distances and ranks
+    min_spot_genes,spot_ranks = _radial_dist_and_rank(cell)
+
+    #Iterate through unique genes to assign per-gene scores
+    for gene in cell.genes:
+        gene_inds = min_spot_genes == gene
+        gene_ranks = spot_ranks[gene_inds]
+        cell.gene_med_ranks[gene] = np.median(gene_ranks)
+
+    return cell
+
+
+def _radial_dist_and_rank(cell):
+    """
+    Helper function to calculate radial ranks
+    """
+
+    #calculate the spot angles
+    spot_angles = []
+    spot_genes = []
+
+    for zslice in cell.zslices:
+
+        boundary = cell.boundaries[zslice]
+        z_centroid = np.mean(boundary)
+
+        z_spot_coords = cell.spot_coords[zslice]
+        z_spot_genes = cell.spot_genes[zslice]
+
+        for p,gene in zip(z_spot_coords,z_spot_genes):
+            p_x,p_y = p
+
+            angle = None #TODO NEED LOGIC HERE
+
+            spot_angles.append(angle)
+            spot_genes.append(gene)
+
+
+    #Calculate median gene angles and residuals
+    angle_residuals = spot_angles.copy()
+    for gene in cell.genes:
+        gene_inds = spot_genes == gene
+        gene_angles = spot_angles[gene_inds]
+        med_gene_angle = np.median(gene_angles)
+
+        angle_residuals[gene_inds] = np.abs(gene_angles-med_gene_angle)
+
+
+    #Rank spots by angle residuals
+    spot_ranks = np.array(angle_residuals).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
+
+    return spot_genes,spot_ranks
+
+

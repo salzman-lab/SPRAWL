@@ -133,6 +133,8 @@ def null_permute_gene_labels(cell, within_z=True):
     Take as input a Cell object
     permutes in place but also returns Cell object reference
 
+    doesn't matter which metric is used
+
     within_z=True means gene labels will only be reassigned within each z-slice
     within_z=False means gene labels will be reassigned cell-wide
     """
@@ -150,6 +152,57 @@ def null_permute_gene_labels(cell, within_z=True):
             cell.spot_genes[z] = all_genes[i:i+slice_spots]
             i += slice_spots
 
+    return cell
+
+
+def lin_permute_gene_labels(cell, metric, gene_ks={}):
+    """
+    Take as input a Cell object
+    permutes in place but also returns Cell object reference
+
+    Assigns gene labels biased by spot ranks and gene_ks dict
+    under the assumption that the probability distribution is linear
+
+    k represents the ratio in of p(g = rank1)/p(g = rankN)
+
+    if a gene is not present in a gene_ks, then a uniform distribution is assumed (k = 1)
+    """
+    #calculate spot ranks ???
+    pass
+
+    #Iterate through the ranks, assigning gene labels based on pdfs
+    #keeping track of how many spots of each gene are remaining
+    remaining_gene_counts = cell.gene_counts.copy()
+    new_spot_genes = []
+    for spot_rank in spot_ranks:
+        #choose gene based on linear pdfs and numbers of each gene ???
+        pass
+
+        new_spot_genes.append(gene)
+
+        #update remaining gene counts
+        if remaining_gene_counts[gene] > 1:
+            remaining_gene_counts[gene] -= 1
+        else:
+            del remaining_gene_counts[gene]
+
+
+    return cell
+
+
+def exp_permute_gene_labels(cell, metric, gene_ks={}):
+    """
+    Take as input a Cell object
+    permutes in place but also returns Cell object reference
+
+    Assigns gene labels biased by spot ranks and gene_ks dict
+    under the assumption that the probability distribution follows an exponential
+    function with equation ???
+
+    (genes with large bias towards smaller ranks have large values of ???)
+
+    if a gene is not present in a gene_ks, then a uniform distribution is assumed
+    """
     return cell
 
 
