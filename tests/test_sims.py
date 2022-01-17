@@ -1,13 +1,17 @@
 import pytest
-from SRRS import simulate, scoring
 import collections
 import pandas as pd
 import numpy as np
+import functools
 
-alt_hyps = {
-    'exp':simulate.exp_permute_gene_labels,
+from SRRS import simulate, scoring
+
+available_permutations = {
+    'null':simulate.null_permute_gene_labels,
     'lin':simulate.lin_permute_gene_labels,
+    'exp':simulate.exp_permute_gene_labels,
 }
+
 
 def perm_helper(orig_c,perm_c):
     """
@@ -60,22 +64,31 @@ def test_null_perm_across_z(dataset,seed,request):
         perm_helper(orig_c,perm_c)
 
 
-@pytest.mark.xfail(reason='Not yet implemented')
 @pytest.mark.parametrize('dataset',['m1s4','m2s4'])
-@pytest.mark.parametrize('alt_hyp', ['lin','exp'])
+@pytest.mark.parametrize('alt_hyp',['lin','exp'])
 @pytest.mark.parametrize('seed',[25,682])
-def test_alt_perms(dataset,alt_hyp,seed,request):
+def test_alt_peripheral_perms(dataset,alt_hyp,seed,request):
     """
-    Test alternative hypothesis gene label swapping
+    Test peripheral alternative hypothesis gene label swapping
     """
     np.random.seed(seed)
-
     data = request.getfixturevalue(dataset)
-    perm_f = alt_hyps[alt_hyp]
+
+    gene_ks = {
+        'C1ql3':2, #biased towards small ranks
+        'Pou6f2':0.5, #biased towards large ranks
+    }
+
+    perm_f = functools.partial(
+        available_permutations[alt_hyp],
+        metric='peripheral',
+        gene_ks=gene_ks,
+    )
 
     orig_cells = data.cells()
     perm_cells = data.cells()
 
+    #Basic permutation checks
     for orig_c,perm_c in zip(orig_cells,perm_cells):
         perm_f(perm_c)
         perm_helper(orig_c,perm_c)

@@ -59,7 +59,7 @@ def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='
     ax.scatter3D(xs, ys, zs, color='gray')
     show_legend = False
     for gene,color in gene_colors.items():
-        gene_inds = genes == gene.encode()
+        gene_inds = genes == gene
 
         if sum(gene_inds):
             ax.scatter3D(xs[gene_inds], ys[gene_inds], zs[gene_inds], color=color, label=gene)
@@ -119,8 +119,7 @@ def plot_cell_zslices(cell, gene_colors={}, color_by_rank=False, default_spot_co
         #color spots by gene
         if gene_colors:
             colors = []
-            for raw_gene in cell.spot_genes[zslice]:
-                gene = raw_gene.decode()
+            for gene in cell.spot_genes[zslice]:
                 if gene in gene_colors:
                     colors.append(gene_colors[gene])
                     if gene not in labels:
