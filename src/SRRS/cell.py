@@ -19,17 +19,23 @@ class Cell:
         self.cell_id = os.path.basename(group.name)
 
         self.n = 0
+        self.n_per_z = {}
+        self.ranked = False
+        self.spot_ranks = {}
 
-        #boundaries, spot_coords, and spot_gene groups must always be present
+        #boundaries, spot_coords, and spot_gene groups will always be present
         self.boundaries = {}
         self.spot_coords = {}
         self.spot_genes = {}
         for zslice in self.zslices:
+            self.n_per_z[zslice] = group['spot_genes'][zslice].shape[0]
+
             self.boundaries[zslice] = group['boundaries'][zslice][:]
             self.spot_coords[zslice] = group['spot_coords'][zslice][:]
-            self.spot_genes[zslice] = group['spot_genes'][zslice][:]
+            self.spot_genes[zslice] = [g.decode() for g in group['spot_genes'][zslice][:]]
+            self.spot_ranks[zslice] = []
 
-            self.n += group['spot_genes'][zslice].shape[0]
+            self.n += self.n_per_z[zslice]
 
         #members used by other functions
         self.gene_counts = collections.Counter(g for z in self.zslices for g in self.spot_genes[z])
@@ -44,53 +50,7 @@ class Cell:
                 self.gene_vars[self.genes[i]] = gene_var
 
 
+    def __repr__(self):
+        repr_str = 'Cell-{}-{}'.format(self.cell_id,self.annotation)
+        return repr_str
 
-def plot_cell_spots_zslices(hdf5_cell, spot_colors={}, default_spot_color='grey'):
-
-    zslices = hdf5_cell.attrs['zslices']
-    fig, axs = plt.subplots(figsize=(8,8),nrows=3,ncols=3,sharex=True,sharey=True)
-    axs = axs.flatten()
-
-    global_min_x,global_min_y = None,None
-    global_max_x,global_max_y = None,None
-
-    for i,zslice in enumerate(zslices):
-
-        #Add the spots
-        colors = []
-        for gene in hdf5_cell['spot_genes'][zslice]:
-            if gene.decode() in spot_colors:
-                colors.append(spot_colors[gene.decode()])
-            else:
-                colors.append(default_spot_color)
-
-        #Draw the cell outline
-        boundary = hdf5_cell['boundaries'][zslice][:]
-        min_x,min_y = boundary.min(axis=0)
-        max_x,max_y = boundary.max(axis=0)
-
-        if not global_min_x or min_x < global_min_x:
-            global_min_x = min_x
-        if not global_min_y or min_y < global_min_y:
-            global_min_y = min_y
-        if not global_max_x or max_x > global_max_x:
-            global_max_x = max_x
-        if not global_max_y or max_y > global_max_y:
-            global_max_y = max_y
-
-        polygon = Polygon(boundary, fill=None)
-        axs[i].add_artist(polygon)
-
-
-        axs[i].scatter(
-            x = hdf5_cell['spot_coords'][zslice][:,0],
-            y = hdf5_cell['spot_coords'][zslice][:,1],
-            alpha = 0.8,
-            color = colors,
-        )
-
-
-    for used_i in range(i+1):
-        axs[used_i].set_xticks([])
-        axs[used_i].set_yticks([])
-        axs[used_i].set_xlim(global_min_x,global_max_x)

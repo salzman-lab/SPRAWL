@@ -11,6 +11,13 @@ import functools
 import logging
 import sys
 
+pd.options.mode.chained_assignment = None  # default='warn'
+
+available_metrics = {
+    '_test':metrics._test,
+    'peripheral':metrics.peripheral,
+    'radial':metrics.radial,
+}
 
 def iter_scores(cells, metric):
     """
@@ -39,7 +46,7 @@ def iter_scores(cells, metric):
             'cell_id':cell.cell_id,
             'annotation':cell.annotation,
             'num_spots':cell.n,
-            'gene':[g.decode() for g in cell.genes],
+            'gene':cell.genes,
             'num_gene_spots':[cell.gene_counts[g] for g in cell.genes],
             'median_rank':[cell.gene_med_ranks[g] for g in cell.genes],
             'score':[utils.score(cell.gene_med_ranks[g],cell.n) for g in cell.genes],
@@ -131,11 +138,6 @@ def _sequential_iter_scores(cells, metric):
 
     yields an iterator of dataframes with score info
     """
-    available_metrics = {
-        '_test':metrics._test,
-        'peripheral':metrics.peripheral,
-    }
-
     if metric not in available_metrics:
         sys.stderr.write('Metric {} not found in possible metrics {}\n'.format(metric, available_metrics.keys()))
         sys.exit(1)
@@ -149,7 +151,7 @@ def _sequential_iter_scores(cells, metric):
             'cell_id':cell.cell_id,
             'annotation':cell.annotation,
             'num_spots':cell.n,
-            'gene':[g.decode() for g in cell.genes],
+            'gene':cell.genes,
             'num_gene_spots':[cell.gene_counts[g] for g in cell.genes],
             'median_rank':[cell.gene_med_ranks[g] for g in cell.genes],
             'score':[utils.score(cell.gene_med_ranks[g],cell.n) for g in cell.genes],
@@ -199,10 +201,6 @@ def _iter_scores(cells, metric_name):
     Apply the chosen scoring metric to each cell
     utilizes multiprocessing
     """
-    available_metrics = {
-        '_test':metrics._test,
-        'peripheral':metrics.peripheral,
-    }
 
     #get the metric function or raise KeyError
     metric_f = available_metrics[metric_name]
