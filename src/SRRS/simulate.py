@@ -79,13 +79,13 @@ def gene_cell_sim_null_peripheral(cells, within_z=True, n_its=1000, alpha=0.05):
     for cell in cells:
         meds_per_cell_per_gene[cell.cell_id] = collections.defaultdict(list)
         n = cell.n
-        _,ranks = metrics._peripheral_dist_and_rank(cell)
+        cell = metrics._peripheral_dist_and_rank(cell)
         for _ in range(n_its):
             null_permute_gene_labels(cell, within_z)
             genes = np.array([g for z in cell.zslices for g in cell.spot_genes[z]])
 
             for g,m in cell.gene_counts.items():
-                med = np.median(ranks[genes == g])+1
+                med = cell.gene_med_ranks[g]
                 meds_per_cell_per_gene[cell.cell_id][g].append(med)
                 m_n_meds[(m,n)].add(med)
 
