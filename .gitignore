@@ -18,6 +18,9 @@ nextflow*
 *.swp
 *.ipynb
 
+#notebooks in analysis can be included
+!analysis/*.ipynb
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
