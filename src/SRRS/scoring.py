@@ -117,6 +117,7 @@ def gene_celltype_scoring(srrs_df):
         med_spots = ('num_spots','median'),
         med_score = ('score','median'),
         z = ('z','first'),
+        p = ('two_sided_p','first'),
         bh_p = ('bh_corrected_two_sided_p','first'),
     ).reset_index(drop=True)
 

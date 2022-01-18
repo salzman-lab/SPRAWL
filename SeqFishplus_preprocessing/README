@@ -1,0 +1,19 @@
+
+11/08/2021
+
+Downloading source data from https://github.com/CaiGroup/seqFISH-PLUS/blob/master/sourcedata.zip?raw=true
+
+cortex_svz_cell_type_annotations.csv comes from unzipping https://github.com/CaiGroup/seqFISH-PLUS/blob/master/celltype_annotations.zip?raw=true
+
+There are just 913 cells in this downloaded data and there is no cell-boundary info, just cell spots
+This must be the Cortex dataset which has 913 cells in the cortex_svz_cell_type_annotations.csv table (0 --> 912 in the index)
+
+In their RNA localization analysis they just used the cortex data, so this is all that I need to use as well
+
+For their metric they normalized by cell size which they estimated as the convex hull area
+
+When I create the periphery boundaries for the hdf5 files I'll calculate the convex hull to save out
+
+I can also calculate the convex hull for the MERFISH data and use that instead of the cell boundary to test result robustness
+
+

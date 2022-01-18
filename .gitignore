@@ -4,6 +4,8 @@
 *.out
 *.sqlite
 *.txt
+*.bed
+*.hdf5
 work/
 
 # Log files/implementation files
@@ -12,8 +14,9 @@ slurm*
 nextflow*
 .nextflow*
 
-# Temporary files
+# Temporary files and sandboxes
 *.swp
+*.ipynb
 
 
 # Byte-compiled / optimized / DLL files
