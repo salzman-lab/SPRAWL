@@ -194,7 +194,6 @@ def _iter_vars(cells):
         for result in results:
             yield result
 
-    var_mem.close()
     manager.close()
 
 
