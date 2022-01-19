@@ -194,8 +194,6 @@ def _iter_vars(cells):
         for result in results:
             yield result
 
-    manager.close()
-
 
 def _iter_scores(cells, metric_name):
     """
