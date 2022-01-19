@@ -24,11 +24,15 @@ def main():
         if sum(v >= min_spots_per_gene for v in c.gene_counts.values()) >= min_unique_genes
     )
 
+    #cache the expensive var calculations
+    cells = list(scoring._iter_vars(cells))
+    sample.save_gene_vars(cells)
+
     #score and write out
     scores = SRRS.iter_scores(cells, metric='peripheral')
-
     for i,score_df in enumerate(scores):
         score_df.to_csv(out_name, mode='a', index=False, header = i==0)
+
 
 if __name__ == '__main__':
     main()
