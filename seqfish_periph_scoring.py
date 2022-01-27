@@ -1,4 +1,5 @@
 import SRRS
+from SRRS import scoring
 
 import pandas as pd
 import time
@@ -25,8 +26,8 @@ def main():
     )
 
     #cache the expensive var calculations
-    cells = list(scoring._iter_vars(cells))
-    sample.save_gene_vars(cells)
+    #cells = list(scoring._iter_vars(cells))
+    #sample.save_gene_vars(cells)
 
     #score and write out
     scores = SRRS.iter_scores(cells, metric='peripheral')

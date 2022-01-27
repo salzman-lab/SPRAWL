@@ -12,8 +12,6 @@ mop_df['sample_id'] = 'm'+mop_df['mouse'].astype(str)+'s'+mop_df['sample'].astyp
 mop_df = mop_df[mop_df['num_gene_spots'].ge(5)]
 mop_df = mop_df.groupby(['sample_id','gene','annotation']).filter(lambda g: len(g) >= 20)
 
-mop_df.head()
-
 #convert MOp annotations to match ReadZs annotations
 
 mop_to_10x_ann_map = {
@@ -45,7 +43,7 @@ mop_to_10x_ann_map = {
 }
 mop_df['ontology'] = mop_df['annotation'].map(mop_to_10x_ann_map)
 mop_df = mop_df.drop(columns=['annotation']).dropna()
-
+mop_df.to_csv('/oak/stanford/groups/horence/rob/isoform_localizations/SRRS/outputs/gene_cell/MOp_periphal_ReadZs_gene_ontology.csv',index=False)
 
 #Calculate z from Lyapunov CLT for each gene in each sample
 gb_cols = ['sample_id','gene','ontology']
