@@ -6,6 +6,10 @@
 *.txt
 *.bed
 *.hdf5
+*.bam
+*.fa
+*.fq
+*.pdf
 work/
 
 # Log files/implementation files
