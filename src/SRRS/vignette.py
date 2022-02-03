@@ -14,6 +14,9 @@ def m1s4_hdf5():
 def m2s4_hdf5():
     return _load_hdf5('merfish_m2s4_vignette.hdf5')
 
+def m1s1_large_hdf5():
+    return _load_hdf5('m1s1_152_cells.hdf5')
+
 def no_var_m1s4_hdf5():
     #var is not cached
     return _load_hdf5('no_var_merfish_m1s4_vignette.hdf5')
@@ -21,4 +24,5 @@ def no_var_m1s4_hdf5():
 def no_var_m2s4_hdf5():
     #var is not cached
     return _load_hdf5('no_var_merfish_m2s4_vignette.hdf5')
+
 

@@ -1,9 +1,13 @@
+from . import utils
+
 import pandas as pd
 import numpy as np
 
 import matplotlib as mpl
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+from matplotlib.collections import PolyCollection
+from matplotlib.lines import Line2D
 from matplotlib import cm
 import seaborn as sns
 
@@ -188,4 +192,86 @@ def plot_cell_zslices(cell, gene_colors={}, color_by_rank=False, default_spot_co
 
     return fig
 
+
+
+
+def plot_tissue_level(cells, color_by_score_gene=None, color_by_ontology=False, region=(False,False,False,False)):
+    """
+    Plot cells across tissues for a zoomed out view of patterns
+    Color by score or by cell-type
+
+    Draws outlines from just a single zslice, the first for each cell, which shouldn't matter in a zoomed out plot
+
+    optionally takes input of boundaries which is a 4-tuple of (xmin,ymin,xmax,ymax) and only plots cell fully in
+    this rectangular region
+
+    if not caring about a certain boundary such as min_x, set to False
+    """
+    r_minx,r_miny,r_maxx,r_maxy = region
+
+    boundaries = []
+    cmap_vals = []
+
+    fig, ax = plt.subplots(figsize=(6,6))
+
+    for cell in cells:
+        z = cell.zslices[0] #just plot the "top" z-slice
+        bounds = cell.boundaries[z]
+        xs,ys = bounds[:,0],bounds[:,1]
+
+        #check if a boundary is set (not False) and the cell exceeds it
+        outside_region = any([
+            r_minx and (min(xs) < r_minx),
+            r_miny and (min(ys) < r_miny),
+            r_maxx and (max(xs) > r_maxx),
+            r_maxy and (max(ys) > r_maxy),
+        ])
+
+        if outside_region:
+            continue
+
+        #determine coloring
+        if color_by_ontology:
+            cmap_vals.append(cell.annotation)
+        elif color_by_score_gene:
+            med_rank = cell.gene_med_ranks.get(color_by_score_gene)
+            cmap_val = utils.score(med_rank,cell.n) if med_rank else np.nan
+            cmap_vals.append(cmap_val)
+
+        boundaries.append(bounds)
+
+
+    # Make the collection and add it to the plot
+    # do this differently depending on how the coloring is done
+    if color_by_ontology:
+        uniq_onts = sorted(list(set(cmap_vals)))
+        colors = sns.color_palette("hls", len(uniq_onts))
+        ont_to_color = {ont:color for ont,color in zip(uniq_onts,colors)}
+        colors = [ont_to_color[ont] for ont in cmap_vals]
+        coll = PolyCollection(boundaries, facecolors=colors, edgecolors='none')
+
+        markers = [
+                Line2D([0], [0], marker='o', color='w', markerfacecolor=ont_to_color[ont], label=ont)
+                for ont in uniq_onts
+        ]
+        ax.legend(handles=markers)
+
+    elif color_by_score_gene:
+        cmap = cm.get_cmap('coolwarm').copy()
+        cmap.set_bad(color='black')
+        coll = PolyCollection(boundaries, array=cmap_vals, cmap=cmap, edgecolors='none')
+        fig.colorbar(coll, ax=ax)
+
+
+    else:
+        coll = PolyCollection(boundaries, facecolor='none', edgecolor='black')
+
+    ax.add_collection(coll)
+    ax.autoscale_view()
+    plt.axis('equal')
+    plt.axis('off')
+    plt.show()
+    plt.close()
+
+    return fig
 

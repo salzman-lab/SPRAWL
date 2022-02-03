@@ -30,3 +30,24 @@ def test_zslice_plot(m2s4,gene_colors,color_by_rank,metric):
     assert type(fig) == matplotlib.figure.Figure
 
 
+@pytest.mark.parametrize('color_by_score_gene, color_by_ontology, metric',
+        [
+            (None,False,None),
+            (None,True,None),
+            ('Acta2',False,'peripheral'),
+        ]
+)
+def test_tissue_plot(m2s4,color_by_score_gene,color_by_ontology,metric):
+    cells = m2s4.cells()
+    if metric:
+        metric_f = scoring.available_metrics[metric]
+        cells = [metric_f(cell) for cell in cells]
+
+    fig = plotting.plot_tissue_level(
+        cells,
+        color_by_score_gene=color_by_score_gene,
+        color_by_ontology=color_by_ontology,
+    )
+    assert type(fig) == matplotlib.figure.Figure
+
+
