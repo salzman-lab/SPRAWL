@@ -33,7 +33,7 @@ def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='
     genes = []
     ranks = []
 
-    for z_ind in cell.zslices[:-1]:
+    for z_ind in cell.zslices:
         z = int(z_ind)*1.5
 
         b_xs = cell.boundaries[z_ind][:,0]
@@ -87,14 +87,12 @@ def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='
     if show_legend:
         plt.legend()
 
-    plt.show()
-    plt.close()
 
     return fig
 
 
 
-def plot_cell_zslices(cell, gene_colors={}, color_by_rank=False, default_spot_color='grey'):
+def plot_cell_zslices(cell, gene_colors={}, color_by_rank=False, default_spot_color='grey', rainbow=False):
     """
     plot of a cell separated by z-slice
     optionally color spots by gene
@@ -104,9 +102,21 @@ def plot_cell_zslices(cell, gene_colors={}, color_by_rank=False, default_spot_co
     #If gene colors given and coloring by rank, just color by rank
     gene_colors = {} if color_by_rank else gene_colors
 
+    #Make as square a layout as I can
     zslices = cell.zslices
-    fig, axs = plt.subplots(figsize=(8,8),nrows=3,ncols=3,sharex=True,sharey=True)
-    axs = axs.flatten()
+    nslices = len(zslices)
+    nrows = int(np.sqrt(nslices))
+    ncols = nrows
+    while nrows*ncols < nslices:
+        ncols += 1
+
+    fig, axs = plt.subplots(figsize=(5*ncols,5*nrows),nrows=nrows,ncols=ncols,sharex=True,sharey=True)
+    try:
+        axs = axs.flatten()
+    except AttributeError:
+        #if the grid is 1x1 then an axis is directly returned
+        axs = [axs]
+
 
     global_min_x,global_min_y = None,None
     global_max_x,global_max_y = None,None
@@ -137,6 +147,24 @@ def plot_cell_zslices(cell, gene_colors={}, color_by_rank=False, default_spot_co
         elif color_by_rank and cell.ranked:
             colors = cmap(cell.spot_ranks[zslice])
 
+        #give each gene a different color
+        elif rainbow:
+            rainbow_colors = sns.color_palette("hls", len(cell.genes))
+            rainbow_map = {gene:color for gene,color in zip(cell.genes,rainbow_colors)}
+
+            colors = []
+            for gene in cell.spot_genes[zslice]:
+                colors.append(rainbow_map[gene])
+                if gene not in labels:
+                    labels.append(gene)
+                    handle = mpatches.Circle((0.5, 0.5), radius = 0.25, facecolor=rainbow_map[gene], edgecolor="none")
+                    handles.append(handle)
+
+
+
+        #otherwise make spots all default
+        else:
+            colors = [default_spot_color]*len(cell.spot_coords[zslice])
 
         #Draw the cell outline
         boundary = cell.boundaries[zslice][:]
@@ -187,8 +215,6 @@ def plot_cell_zslices(cell, gene_colors={}, color_by_rank=False, default_spot_co
     plt.suptitle('Celltype {}'.format(cell.annotation), y=0.92)
     if handles and labels:
         fig.legend(handles,labels)
-    plt.show()
-    plt.close()
 
     return fig
 
@@ -270,8 +296,6 @@ def plot_tissue_level(cells, color_by_score_gene=None, color_by_ontology=False, 
     ax.autoscale_view()
     plt.axis('equal')
     plt.axis('off')
-    plt.show()
-    plt.close()
 
     return fig
 

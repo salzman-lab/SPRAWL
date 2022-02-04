@@ -148,8 +148,7 @@ def _radial_dist_and_rank(cell):
     angle_residuals = []
     for gene,vec in zip(spot_genes,spot_coords):
         norm_vec = vec/np.linalg.norm(vec)
-        dp = np.dot(mean_gene_vecs[gene], vec)
-        angle = np.arccos(dp)
+        angle = np.arccos(np.clip(np.dot(norm_vec, mean_gene_vecs[gene]), -1.0, 1.0)) #taken from: https://stackoverflow.com/questions/2827393
         angle_residuals.append(angle)
 
 

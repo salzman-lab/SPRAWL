@@ -118,3 +118,49 @@ class HDF5:
 
         return cells
 
+
+    @classmethod
+    def write_cells(cls,cells,out_path):
+        """
+        Create an hdf5 file from a list of Cell objects
+        saves to out_path
+
+        overwrites if the file already exists
+        """
+        with h5py.File(out_path,'w') as out_f:
+            cell_ids = []
+            all_genes = set()
+
+            f_cells = out_f.create_group('cells')
+            for cell in cells:
+                #update global collections
+                cell_ids.append(cell.cell_id)
+                all_genes = all_genes.union(cell.genes)
+
+                #create cell and attributes
+                f_cell = f_cells.create_group(cell.cell_id)
+                f_cell.attrs['annotation'] = cell.annotation
+                f_cell.attrs['num_genes'] = len(cell.genes)
+                f_cell.attrs['num_spots'] = sum(cell.gene_counts.values())
+                f_cell.attrs['zslices'] = cell.zslices
+
+                #create boundaries, sport_coords, and spot_genes
+                f_bounds = f_cell.create_group('boundaries')
+                f_coords = f_cell.create_group('spot_coords')
+                f_genes = f_cell.create_group('spot_genes')
+
+                for z in cell.zslices:
+                    f_bounds.create_dataset(z, data = cell.boundaries[z])
+                    f_coords.create_dataset(z, data = cell.spot_coords[z])
+                    f_genes.create_dataset(z, data = [g.encode() for g in cell.spot_genes[z]])
+
+
+                #create gene_vars if calculated for the cell (make sure to sort by gene)
+                if cell.gene_vars:
+                    var_list = [v for g,v in sorted(cell.gene_vars.items())]
+                    f_gvars = f_cell.create_dataset('gene_vars', data = var_list)
+
+            out_f.create_dataset('genes', data=[g.encode() for g in sorted(list(all_genes))])
+            out_f.create_dataset('cell_ids',data=[cell_id.encode() for cell_id in cell_ids])
+
+
