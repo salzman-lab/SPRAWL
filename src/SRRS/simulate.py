@@ -29,7 +29,7 @@ def gene_celltype_sim_null(cells, metric, within_z=True, n_its=1000):
     #iterate through the permuatations
     for it_num in range(n_its):
 
-        #permute all the cell gene labels
+        #permute all the cell gene labels (occurs in-place)
         for cell in cells:
             null_permute_gene_labels(cell, within_z)
 
