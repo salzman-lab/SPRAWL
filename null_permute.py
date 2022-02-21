@@ -4,8 +4,8 @@ from SRRS import scoring,simulate
 import sys
 
 def main():
-    hdf5_path = '/oak/stanford/groups/horence/rob/isoform_localizations/sub_cell_patterns/preprocessing/cached_gene_vars/mouse1sample1.hdf5'
-    out_name = 'm1s1_10_null_permutes_within_z.csv'
+    hdf5_path = 'inputs/mouse1sample3.hdf5'
+    out_name = 'm1s3_radial_null_permutes_across_z.csv'
 
     sample = SRRS.HDF5(hdf5_path)
     cells = sample.iter_cells()
@@ -27,7 +27,7 @@ def main():
     )
 
     #calculate and save out csv of simulations
-    sim_df_iter = simulate.gene_celltype_sim_null(cells, 'peripheral', within_z=True, n_its=1000)
+    sim_df_iter = simulate.gene_celltype_sim_null(cells, 'radial', within_z=False, n_its=1000)
 
     for i,sim_df in enumerate(sim_df_iter):
         sim_df.to_csv(out_name, mode='a', index=False, header = i==0)

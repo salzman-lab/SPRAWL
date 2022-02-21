@@ -1,6 +1,7 @@
 # Potentially large files
 *.png
 *.csv
+*.tsv
 *.out
 *.sqlite
 *.txt

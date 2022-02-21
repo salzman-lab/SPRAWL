@@ -3,7 +3,7 @@ from scipy import stats
 import pandas as pd
 import numpy as np
 
-mop_df = pd.read_csv('../outputs/gene_cell/Merfish_MOp_peripheral.csv')
+mop_df = pd.read_csv('../outputs/gene_cell/Merfish_MOp_radial.csv')
 mop_df['sample_id'] = 'm'+mop_df['mouse'].astype(str)+'s'+mop_df['sample'].astype(str)
 
 #filter SRRS results to
@@ -43,7 +43,7 @@ mop_to_10x_ann_map = {
 }
 mop_df['ontology'] = mop_df['annotation'].map(mop_to_10x_ann_map)
 mop_df = mop_df.drop(columns=['annotation']).dropna()
-mop_df.to_csv('/oak/stanford/groups/horence/rob/isoform_localizations/SRRS/outputs/gene_cell/MOp_peripheral_ReadZs_gene_ontology.csv',index=False)
+mop_df.to_csv('/oak/stanford/groups/horence/rob/isoform_localizations/SRRS/outputs/gene_cell/MOp_radial_ReadZs_gene_ontology.csv',index=False)
 
 #Calculate z from Lyapunov CLT for each gene in each sample
 gb_cols = ['sample_id','gene','ontology']
@@ -74,5 +74,5 @@ mop_agg_df['bh_p'] = adj_p
 
 
 #Write out
-mop_agg_df.to_csv('/oak/stanford/groups/horence/rob/isoform_localizations/SRRS/outputs/gene_ontology/MOp_peripheral_ReadZs_gene_ontology.csv',index=False)
+mop_agg_df.to_csv('/oak/stanford/groups/horence/rob/isoform_localizations/SRRS/outputs/gene_ontology/MOp_radial_ReadZs_gene_ontology.csv',index=False)
 

@@ -74,6 +74,21 @@ class HDF5:
         return len(self.genes)
 
 
+    def get_cells_by_id(self,*cell_ids):
+        """
+        Return a single cell object by cell_id
+        """
+        cells = []
+        with h5py.File(self.path,'r') as _f:
+            for cell_id in cell_ids:
+                if cell_id.encode() not in _f['cell_ids']:
+                    return None
+
+                cells.append(cell.Cell(_f['cells'][cell_id]))
+
+        return cells
+
+
     def cells(self):
         """
         return a list of Cell objects
@@ -93,6 +108,7 @@ class HDF5:
         with h5py.File(self.path,'r') as _f:
             for cell_id,cell_group in _f['cells'].items():
                 yield cell.Cell(cell_group)
+
 
 
     def save_gene_vars(self,cells):

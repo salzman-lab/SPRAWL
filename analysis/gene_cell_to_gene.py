@@ -8,7 +8,7 @@ import sys
 import os
 
 #Read the gene_cell level table
-gene_cell_df = pd.read_csv('../outputs/gene_cell/Vizgen_Brainmap_peripheral.csv')
+gene_cell_df = pd.read_csv('../outputs/gene_cell/Merfish_MOp_radial.csv')
 
 #Calculate z from Lyapunov CLT for each gene in each sample
 gb_cols = ['mouse','sample','replicate','gene']
@@ -38,5 +38,5 @@ _,adj_p,_,_ = multitest.multipletests(
 )
 gene_df['bh_p'] = adj_p
 
-gene_df.to_csv('../outputs/gene/Vizgen_Brainmap_peripheral.csv',index=False)
+gene_df.to_csv('../outputs/gene/Merfish_MOp_radial.csv',index=False)
 
