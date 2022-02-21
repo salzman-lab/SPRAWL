@@ -59,25 +59,36 @@ def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='
     zs = np.array(zs)
     genes = np.array(genes)
 
-    #Plot all spots in gray and then paint over if I have colors
-    ax.scatter3D(xs, ys, zs, color='gray')
-    show_legend = False
-    for gene,color in gene_colors.items():
-        gene_inds = genes == gene
-
-        if sum(gene_inds):
-            ax.scatter3D(xs[gene_inds], ys[gene_inds], zs[gene_inds], color=color, label=gene)
-            show_legend = True
-
-    #If trying to color by rank, but cell is not yet ranked, give a warning
+    #Color all spots by rank
     if color_by_rank:
+        #If trying to color by rank, but cell is not yet ranked, give a warning
         if not cell.ranked:
             sys.stderr.write('Warning: Trying to color by rank, but cell spots not yet ranked\n')
         else:
             cmap = cm.get_cmap('viridis_r', len(ranks))
             norm = mpl.colors.Normalize(vmin=1, vmax=len(ranks))
-            ax.scatter3D(xs, ys, zs, color=cmap(ranks))
+            ax.scatter3D(xs, ys, zs, color=cmap(ranks), s=36)
             fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap),label='Rank')
+
+    else:
+        #Plot spots which have associated colors
+        show_legend = False
+        colored_inds = np.array([False]*len(genes))
+        for gene,color in gene_colors.items():
+            gene_inds = genes == gene
+            colored_inds |= gene_inds
+
+            if sum(gene_inds):
+                ax.scatter3D(xs[gene_inds], ys[gene_inds], zs[gene_inds], color=color, label=gene, s=100)
+                show_legend = True
+
+        #Plot spots without colors in gray (lower zorder to be behind the colored spots)
+        ax.scatter3D(
+            xs[~colored_inds],
+            ys[~colored_inds],
+            zs[~colored_inds],
+            color='gray', s=36, zorder=-1,
+        )
 
 
     ax.set_xticks([])
@@ -183,12 +194,29 @@ def plot_cell_zslices(cell, gene_colors={}, color_by_rank=False, default_spot_co
         polygon = mpatches.Polygon(boundary, fill=None)
         axs[i].add_artist(polygon)
 
+        #Determine which indices are colored/uncolored
+        colors = np.array(colors)
+        uncolored_inds = np.array(colors) == default_spot_color
+        colored_inds = ~uncolored_inds
+
+        #Plot uncolored spots smaller
         axs[i].scatter(
-            x = cell.spot_coords[zslice][:,0],
-            y = cell.spot_coords[zslice][:,1],
+            x = cell.spot_coords[zslice][uncolored_inds,0],
+            y = cell.spot_coords[zslice][uncolored_inds,1],
             alpha = 0.8,
-            color = colors,
+            color = colors[uncolored_inds],
+            s = 36,
         )
+
+        #Plot colored spots larger
+        axs[i].scatter(
+            x = cell.spot_coords[zslice][colored_inds,0],
+            y = cell.spot_coords[zslice][colored_inds,1],
+            alpha = 0.8,
+            color = colors[colored_inds],
+            s = 72,
+        )
+
 
 
     #If trying to color by rank, but cell is not yet ranked, give a warning
