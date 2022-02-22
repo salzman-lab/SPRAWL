@@ -58,6 +58,7 @@ def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='
     ys = np.array(ys)
     zs = np.array(zs)
     genes = np.array(genes)
+    show_legend = False
 
     #Color all spots by rank
     if color_by_rank:
@@ -72,7 +73,6 @@ def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='
 
     else:
         #Plot spots which have associated colors
-        show_legend = False
         colored_inds = np.array([False]*len(genes))
         for gene,color in gene_colors.items():
             gene_inds = genes == gene
