@@ -2,8 +2,8 @@ from statsmodels.stats import multitest
 import pandas as pd
 import glob
 
-file_stem = '/oak/stanford/groups/horence/rob/readzs_fork/results/medians/20220126_*genes*'
-out_path = '/oak/stanford/groups/horence/rob/isoform_localizations/SRRS/outputs/readzs/gene_level/MOp_10Xv3.csv'
+file_stem = '/oak/stanford/groups/horence/rob/readzs_fork/results/medians/20220308_MERF_genes_10Xv3_no_unann_filt*'
+out_path = '/oak/stanford/groups/horence/rob/isoform_localizations/SRRS/outputs/readzs/gene_level/MOp_10Xv3_no_unann_filt.csv'
 bed_path = '/oak/stanford/groups/horence/rob/isoform_localizations/SRRS/plotting/buildup_plots/MERFISH_genes.bed'
 
 fps = glob.glob(file_stem)
