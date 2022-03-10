@@ -78,6 +78,18 @@ def radial(cell):
     return cell
 
 
+def punctate(cell):
+    """
+    Punctate metric
+    """
+    if cell.ranked:
+        return cell
+
+    cell = _punctate_dist_and_rank(cell)
+    cell = _update_med_ranks(cell)
+    return cell
+
+
 def _peripheral_dist_and_rank(cell):
     """
     Helper function to calculate peripheral ranks
@@ -154,6 +166,50 @@ def _radial_dist_and_rank(cell):
 
     #Rank spots by angle residuals
     spot_ranks = np.array(angle_residuals).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
+
+    #save the ranks back to the cell object by z-slice
+    start_i = 0
+    for zslice in cell.zslices:
+        end_i = cell.n_per_z[zslice]+start_i
+        cell.spot_ranks[zslice] = spot_ranks[start_i:end_i]
+        start_i = end_i
+
+    return cell
+
+
+def _punctate_dist_and_rank(cell):
+    """
+    Helper function to calculate punctate ranks
+    """
+    #gather the spot coords and genes
+    spot_genes = []
+    spot_coords = []
+    for zslice in cell.zslices:
+        z_spot_coords = cell.spot_coords[zslice]
+        z_spot_genes = cell.spot_genes[zslice]
+
+        spot_coords.extend(z_spot_coords)
+        spot_genes.extend(z_spot_genes)
+
+    spot_genes = np.array(spot_genes)
+    spot_coords = np.array(spot_coords)
+
+    #calculate gene centroids
+    gene_centroids = {}
+    for gene in cell.genes:
+        gene_inds = spot_genes == gene
+        gene_spots = spot_coords[gene_inds]
+        gene_centroids[gene] = np.mean(gene_spots,axis=0)
+
+    #calculate per-spot distance to its gene centroid
+    spot_dists = []
+    for gene,vec in zip(spot_genes,spot_coords):
+        cx,cy = gene_centroids[gene]
+        x,y = vec
+        spot_dists.append((cx-x)*(cx-x)+(cy-y)*(cy-y))
+
+    #Rank spots by angle residuals
+    spot_ranks = np.array(spot_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
 
     #save the ranks back to the cell object by z-slice
     start_i = 0

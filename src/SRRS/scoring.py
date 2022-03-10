@@ -17,6 +17,7 @@ available_metrics = {
     '_test':metrics._test,
     'peripheral':metrics.peripheral,
     'radial':metrics.radial,
+    'punctate':metrics.punctate,
 }
 
 def iter_scores(cells, metric):
