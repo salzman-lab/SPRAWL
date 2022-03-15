@@ -22,6 +22,7 @@ class Cell:
         self.n_per_z = {}
         self.ranked = False
         self.spot_ranks = {}
+        self.spot_values = {}
 
         #boundaries, spot_coords, and spot_gene groups will always be present
         self.boundaries = {}
@@ -34,6 +35,7 @@ class Cell:
             self.spot_coords[zslice] = group['spot_coords'][zslice][:]
             self.spot_genes[zslice] = [g.decode() for g in group['spot_genes'][zslice][:]]
             self.spot_ranks[zslice] = []
+            self.spot_values[zslice] = []
 
             self.n += self.n_per_z[zslice]
 

@@ -17,7 +17,7 @@ import time
 from . import utils
 
 def _update_med_ranks(cell):
-    #This cell must have been ranked
+    #mark this cell as ranked to avoid duplicate work
     cell.ranked = True
 
     #Pull out the gene ranks
@@ -119,6 +119,7 @@ def _peripheral_dist_and_rank(cell):
     for zslice in cell.zslices:
         end_i = cell.n_per_z[zslice]+start_i
         cell.spot_ranks[zslice] = spot_ranks[start_i:end_i]
+        cell.spot_values[zslice] = min_periph_dists[start_i:end_i]
         start_i = end_i
 
     return cell
@@ -172,6 +173,7 @@ def _radial_dist_and_rank(cell):
     for zslice in cell.zslices:
         end_i = cell.n_per_z[zslice]+start_i
         cell.spot_ranks[zslice] = spot_ranks[start_i:end_i]
+        cell.spot_values[zslice] = angle_residuals[start_i:end_i]
         start_i = end_i
 
     return cell
@@ -216,6 +218,7 @@ def _punctate_dist_and_rank(cell):
     for zslice in cell.zslices:
         end_i = cell.n_per_z[zslice]+start_i
         cell.spot_ranks[zslice] = spot_ranks[start_i:end_i]
+        cell.spot_values[zslice] = spot_dists[start_i:end_i]
         start_i = end_i
 
     return cell
