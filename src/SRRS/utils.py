@@ -13,6 +13,9 @@ def score(obs_med, n):
     """
     Calculate SRRS score from median observed rank
     """
+    if obs_med == None:
+        return None
+
     exp_med = (n+1)/2
     eff = (exp_med-obs_med)/(exp_med-1)
     return eff

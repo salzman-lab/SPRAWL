@@ -42,16 +42,19 @@ def iter_scores(cells, metric):
     cells = _iter_scores(cells,metric)
 
     for cell in cells:
+        genes = cell.gene_med_ranks.keys()
+        med_ranks = cell.gene_med_ranks.keys()
+
         df = pd.DataFrame({
             'metric':metric,
             'cell_id':cell.cell_id,
             'annotation':cell.annotation,
             'num_spots':cell.n,
-            'gene':cell.genes,
-            'num_gene_spots':[cell.gene_counts[g] for g in cell.genes],
-            'median_rank':[cell.gene_med_ranks[g] for g in cell.genes],
-            'score':[utils.score(cell.gene_med_ranks[g],cell.n) for g in cell.genes],
-            'variance':[cell.gene_vars[g] for g in cell.genes],
+            'gene':genes,
+            'num_gene_spots':[cell.gene_counts[g] for g in genes],
+            'median_rank':med_ranks,
+            'score':[utils.score(r,cell.n) for r in med_ranks],
+            'variance':[cell.gene_vars[g] for g in genes],
         })
         yield df
 
@@ -104,16 +107,23 @@ def gene_celltype_scoring(srrs_df):
 
     #multiple testing correction
     dedup_df = srrs_df.drop_duplicates(gb_cols)
-    passes,adj_p,_,_ = multitest.multipletests(
-        dedup_df['two_sided_p'],
-        alpha = 0.05, #just need a stand in value
-        method = 'fdr_bh',
-    )
-    dedup_df['bh_corrected_two_sided_p'] = adj_p
-    dedup_df = dedup_df.set_index(gb_cols)
-    srrs_df = srrs_df.set_index(gb_cols)
-    srrs_df['bh_corrected_two_sided_p'] = dedup_df['bh_corrected_two_sided_p']
-    srrs_df = srrs_df.reset_index()
+
+    #Running into divide by zero errors which I think is the result of an empty table
+    if len(dedup_df) > 1:
+        passes,adj_p,_,_ = multitest.multipletests(
+            dedup_df['two_sided_p'],
+            alpha = 0.05, #just need a stand in value
+            method = 'fdr_bh',
+        )
+        dedup_df['bh_corrected_two_sided_p'] = adj_p
+        dedup_df = dedup_df.set_index(gb_cols)
+        srrs_df = srrs_df.set_index(gb_cols)
+        srrs_df['bh_corrected_two_sided_p'] = dedup_df['bh_corrected_two_sided_p']
+        srrs_df = srrs_df.reset_index()
+
+    else:
+        srrs_df['bh_corrected_two_sided_p'] = None
+
 
     #groupby sample/gene/annotation with bh_p
     agg_df = srrs_df.groupby(gb_cols).agg(

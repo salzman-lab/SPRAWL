@@ -5,7 +5,7 @@ import sys
 
 def main():
     hdf5_path = 'inputs/mouse1sample3.hdf5'
-    out_name = 'm1s3_radial_null_permutes_across_z.csv'
+    out_name = 'm1s3_punctate_null_permutes_across_z.csv'
 
     sample = SRRS.HDF5(hdf5_path)
     cells = sample.iter_cells()
@@ -27,9 +27,11 @@ def main():
     )
 
     #calculate and save out csv of simulations
-    sim_df_iter = simulate.gene_celltype_sim_null(cells, 'radial', within_z=False, n_its=1000)
+    sim_df_iter = simulate.gene_celltype_sim_null(cells, 'punctate', within_z=False, n_its=1000)
 
     for i,sim_df in enumerate(sim_df_iter):
+        print(i,len(sim_df))
+        sys.stdout.flush()
         sim_df.to_csv(out_name, mode='a', index=False, header = i==0)
     
 

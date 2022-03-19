@@ -66,26 +66,18 @@ class HDF5:
         return len(self._f['cells'].keys())
 
     @property
-    @fhandle
     def num_genes(self):
         """
         Count the number of unique genes across all cells
         """
         return len(self.genes)
 
-
+    @fhandle
     def get_cells_by_id(self,*cell_ids):
         """
-        Return a single cell object by cell_id
+        Return cell objects by cell_id
         """
-        cells = []
-        with h5py.File(self.path,'r') as _f:
-            for cell_id in cell_ids:
-                if cell_id.encode() not in _f['cell_ids']:
-                    return None
-
-                cells.append(cell.Cell(_f['cells'][cell_id]))
-
+        cells = [cell.Cell(self._f['cells'][cell_id]) for cell_id in cell_ids]
         return cells
 
 
