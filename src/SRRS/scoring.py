@@ -43,7 +43,7 @@ def iter_scores(cells, metric):
 
     for cell in cells:
         genes = cell.gene_med_ranks.keys()
-        med_ranks = cell.gene_med_ranks.keys()
+        med_ranks = cell.gene_med_ranks.values()
 
         df = pd.DataFrame({
             'metric':metric,
