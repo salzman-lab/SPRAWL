@@ -7,6 +7,7 @@ import collections
 
 import shapely.geometry
 import h5py
+import sys
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Assign spots to cells')
@@ -25,7 +26,7 @@ def parse_args():
 # Main #
 if __name__ == '__main__':
     args = parse_args()
-    in_f = h5py.File(args.hdf_path,'r')
+    in_f = h5py.File(args.hdf5_path,'r')
 
     #Create the HDF5 file to prepare to write out
     out_f = h5py.File('spot_assigned_fov.hdf5','w')
@@ -48,18 +49,19 @@ if __name__ == '__main__':
         polys = {}
 
         for z,_ in enumerate(in_cell['z_coordinates']):
+            #Check if z_slice has any p_0 levels
+            z_slice_grp = in_cell['zIndex_{}'.format(z)]
+            if 'p_0' not in z_slice_grp:
+                sys.stdout.write('cell {} did not have z-slice {}\n'.format(cell_id,z))
+                continue
 
             #Find which spots are in this cell boundary box
             boundary_hits = idx.intersection((min_x, min_y, z, max_x, max_y, z), objects=True)
 
             #Create a Shapely polygon from the x,y coords at the given z-slice
-            z_slice = in_cell['zIndex_{}'.format(z)]
-            if not len(cell[z_slice]):
-                continue
-
-            xy_s = in_cell[z_slice]['p_0']['coordinates'][0,:,:]
-            poly = shapely.geometry.Polygon()
-            polys[z] = poly
+            xy_s = z_slice_grp['p_0']['coordinates'][0,:,:]
+            poly = shapely.geometry.Polygon(xy_s)
+            polys[str(z)] = poly
 
             for hit in boundary_hits:
                 gene = hit.object
@@ -68,11 +70,12 @@ if __name__ == '__main__':
                 point = shapely.geometry.Point(x,y)
                 
                 if poly.contains(point):        
-                    cell_genes[z].append(gene.encode()) #TODO need to convert barcode_id to gene name
-                    cell_spots[z].append([x,y])
+                    cell_genes[str(z)].append(gene.encode()) #TODO need to convert barcode_id to gene name
+                    cell_spots[str(z)].append([x,y])
           
         #Skip creating cell if no RNA spots are present in any slice
         if len(cell_spots) == 0:
+            sys.stdout.write('cell {} did not have any RNA spot hits\n'.format(cell_id))
             continue
 
         #Instantiate hdf5 group for the cell
@@ -81,13 +84,13 @@ if __name__ == '__main__':
         spot_coords_grp = cell_grp.create_group('spot_coords')
         boundary_grp = cell_grp.create_group('boundaries')
 
-        uniq_cell_genes = {g for z,gs in cell_genes.items() for g in gs})
+        uniq_cell_genes = {g for z,gs in cell_genes.items() for g in gs}
 
         #Add attrs to the cell
-        cell_grp.attrs['annotation'] = 'None' #TODO add annotation data to the cells
+        cell_grp.attrs['annotation'] = cell_id #TODO add annotation data to the cells
         cell_grp.attrs['num_spots'] = sum(len(s) for z,s in cell_spots.items())
         cell_grp.attrs['num_genes'] = len(uniq_cell_genes)
-        cell_grp.attrs['zslices'] = [str(z) for z in cell_spots.keys()]
+        cell_grp.attrs['zslices'] = [z for z in cell_spots.keys()]
 
         #Loop through the z-slices adding the spot-gene, spot-coords, and boundaries
         for z,coords in cell_spots.items():
