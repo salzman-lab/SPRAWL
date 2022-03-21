@@ -130,7 +130,7 @@ class HDF5:
     @classmethod
     def write_cells(cls,cells,out_path):
         """
-        Create an hdf5 file from a list of Cell objects
+        Create an hdf5 file from a list/iter of Cell objects
         saves to out_path
 
         overwrites if the file already exists
