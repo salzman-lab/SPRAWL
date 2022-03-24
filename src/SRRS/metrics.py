@@ -90,6 +90,22 @@ def punctate(cell):
     return cell
 
 
+def central(cell):
+    """
+    Central metric
+
+    Not exactly the opposite of the peripheral metric
+    Ranks distance from cell centroid
+    """
+    if cell.ranked:
+        return cell
+
+    cell = _central_dist_and_rank(cell)
+    cell = _update_med_ranks(cell)
+    return cell
+
+
+
 def _peripheral_dist_and_rank(cell):
     """
     Helper function to calculate peripheral ranks
@@ -222,5 +238,40 @@ def _punctate_dist_and_rank(cell):
         start_i = end_i
 
     return cell
+
+
+def _central_dist_and_rank(cell):
+    """
+    Helper function to calculate central ranks
+    """
+
+    #calculate distance of spot coords to cell centroid
+    spot_genes = []
+    spot_dists = []
+    for zslice in cell.zslices:
+        z_spot_coords = cell.spot_coords[zslice]
+        z_spot_genes = cell.spot_genes[zslice]
+
+        #Euclidean distance to slice centroid
+        slice_centroid = np.mean(cell.boundaries[zslice], axis=0)
+        dists = np.sum((z_spot_coords-slice_centroid)**2, axis=1)
+
+        spot_genes.extend(z_spot_genes)
+        spot_dists.extend(dists)
+
+    #Rank the spots
+    spot_genes = np.array(spot_genes)
+    spot_ranks = np.array(spot_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
+
+    #save the ranks back to the cell object by z-slice
+    start_i = 0
+    for zslice in cell.zslices:
+        end_i = cell.n_per_z[zslice]+start_i
+        cell.spot_ranks[zslice] = spot_ranks[start_i:end_i]
+        cell.spot_values[zslice] = spot_dists[start_i:end_i]
+        start_i = end_i
+
+    return cell
+
 
 

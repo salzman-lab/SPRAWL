@@ -5,7 +5,7 @@ from SRRS import scoring
 import pandas as pd
 
 @pytest.mark.parametrize('dataset', ['m1s4','m2s4'])
-@pytest.mark.parametrize('metric', ['_test','peripheral','radial','punctate'])
+@pytest.mark.parametrize('metric', ['_test','peripheral','radial','punctate','central'])
 def test_multiplex_scoring_metrics_m1s4(dataset, metric, request):
     dataset = request.getfixturevalue(dataset)
     score_iter = SRRS.iter_scores(dataset.iter_cells(), metric=metric)
@@ -21,7 +21,7 @@ def test_multiplex_scoring_metrics_m1s4(dataset, metric, request):
 
 
 @pytest.mark.parametrize('dataset', ['m1s4','m2s4'])
-@pytest.mark.parametrize('metric', ['_test','peripheral','radial','punctate'])
+@pytest.mark.parametrize('metric', ['_test','peripheral','radial','punctate','central'])
 def test_sequential_scoring_metrics_m1s4(dataset, metric, request):
     dataset = request.getfixturevalue(dataset)
     score_iter = SRRS._sequential_iter_scores(dataset.iter_cells(), metric=metric)
@@ -37,7 +37,7 @@ def test_sequential_scoring_metrics_m1s4(dataset, metric, request):
 
 
 @pytest.mark.parametrize('dataset', ['m1s4','m2s4'])
-@pytest.mark.parametrize('metric', ['peripheral','radial','punctate'])
+@pytest.mark.parametrize('metric', ['peripheral','radial','punctate','central'])
 def test_gene_celltype_scoring(dataset, metric, request):
     dataset = request.getfixturevalue(dataset)
 
