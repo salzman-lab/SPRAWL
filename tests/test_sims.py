@@ -64,6 +64,7 @@ def test_null_perm_across_z(dataset,seed,request):
         perm_helper(orig_c,perm_c)
 
 
+@pytest.mark.xfail
 @pytest.mark.parametrize('dataset',['m1s4','m2s4'])
 @pytest.mark.parametrize('alt_hyp',['lin','exp'])
 @pytest.mark.parametrize('seed',[25,682])
