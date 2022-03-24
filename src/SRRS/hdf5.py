@@ -25,9 +25,9 @@ class HDF5:
         """
         Decorator to open and close hdf5
         """
-        def wrapper(self):
+        def wrapper(self, *args, **kwargs):
             self._f = h5py.File(self.path,'r')
-            ret = func(self)
+            ret = func(self, *args, **kwargs)
             self._f.close()
             return ret
 
@@ -73,7 +73,7 @@ class HDF5:
         return len(self.genes)
 
     @fhandle
-    def get_cells_by_id(self,*cell_ids):
+    def get_cells_by_id(self,cell_ids):
         """
         Return cell objects by cell_id
         """
