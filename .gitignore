@@ -7,11 +7,13 @@
 *.txt
 *.bed
 *.hdf5
+*.hdf5.*
 *.bam
 *.fa
 *.fq
 *.pdf
 *.h5ad
+*.h5ad.*
 work/
 
 # Log files/implementation files

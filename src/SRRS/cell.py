@@ -2,6 +2,10 @@ from matplotlib.patches import Circle, Wedge, Polygon, Rectangle
 from matplotlib.collections import PatchCollection
 import matplotlib.pyplot as plt
 import collections
+import numpy as np
+import shapely
+import shapely.geometry
+import copy
 import os
 
 class Cell:
@@ -55,4 +59,57 @@ class Cell:
     def __repr__(self):
         repr_str = 'Cell-{}-{}'.format(self.cell_id,self.annotation)
         return repr_str
+
+
+    def shrink_boundaries(self, scale_factor=0.8):
+        """
+        Shrink the cell boundaries inwards towards the cell center by a certain factor
+        Filter out RNA spots that are now outside the cell
+        Return a new cell object
+        """
+        new_cell = copy.deepcopy(self)
+
+        new_cell.gene_vars = {} #if any spot is lost, gene-vars must be recalculated
+        self.spot_ranks = {} #ranking will have to be done new
+        self.spot_values = {} #ranking will have to be done new
+
+        self.n_per_z = {}
+        new_cell.spot_genes = {}
+        new_cell.spot_coords = {}
+
+
+        for zslice in self.zslices:
+            #Shrink the boundary
+            s = shapely.geometry.Polygon(self.boundaries[zslice])
+            s = shapely.affinity.scale(s, xfact=scale_factor, yfact=scale_factor) #default shrinks around polygon center
+            new_cell.boundaries[zslice] = np.array(s.boundary.xy).T
+
+            #Remove cells outside the decreased boundary
+            new_cell.n_per_z[zslice] = 0
+            xy = []
+            gene_list = []
+
+            for gene,(x,y) in zip(self.spot_genes[zslice],self.spot_coords[zslice]):
+                p = shapely.geometry.Point(x,y)
+                if not s.contains(p):
+                    continue
+
+                new_cell.n_per_z[zslice] += 1
+                xy.append((x,y))
+                gene_list.append(gene)
+
+            new_cell.spot_coords[zslice] = np.array(xy)
+            new_cell.spot_genes[zslice] = gene_list
+                
+            
+        #update cell summary info
+        new_cell.gene_counts = collections.Counter(g for z in new_cell.zslices for g in new_cell.spot_genes[z])
+        new_cell.genes = sorted(list(new_cell.gene_counts.keys()))
+        new_cell.gene_med_ranks = {}
+        new_cell.n = sum(new_cell.n_per_z.values())
+
+
+        return new_cell
+
+
 

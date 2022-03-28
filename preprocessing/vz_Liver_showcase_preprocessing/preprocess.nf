@@ -9,9 +9,12 @@ spots_ch = Channel.fromFilePairs(
 )
 
 boundaries = Channel.fromFilePairs(
-    "/scratch/groups/horence/rob/data/vz_liver_showcase/cell_boundaries/*_99*.hdf5",
+    "/scratch/groups/horence/rob/data/vz_liver_showcase/cell_boundaries/*.hdf5",
     size: -1,
 ){ file -> file.name.replaceAll(/_feature_data_.*$/,'') }
+
+min_filt_spots = 100
+min_uniq_genes = 10
 
 
 // Restructure the points into an RTree index 
@@ -69,13 +72,44 @@ process assign_spots_to_cells {
 }
 
 
+// Filter and calculate gene-cell variances
+process filter_and_variance_calc {
+    cache 'lenient'
+    memory '10 GB'
+    time '3h'
+    cpus 2
+
+
+    input:
+    tuple val(sample1),file(srrs_hdf5) from hdf5_fovs
+
+    output:
+    tuple val(sample1),file('spot_assigned_fov_gv.hdf5') into hdf5_gv_fovs
+
+    script:
+    """
+    ${scriptsDir}/filter_gene_cell_variance.py \
+        --hdf5_path ${srrs_hdf5} \
+        --out_path spot_assigned_fov_gv.hdf5 \
+        --min_spots ${min_filt_spots} \
+        --min_genes ${min_uniq_genes} \
+    """
+
+    stub:
+    """
+    touch spot_assigned_fov_gv.hdf5
+    """
+}
+
+
+
 // Merge fovs
 process merge_fovs {
     publishDir 'finished_outputs', mode: 'copy'
 
     //Kind of like collectFile()
     input:
-    tuple val(sample), file('hdf5_fov') from hdf5_fovs.groupTuple()
+    tuple val(sample), file('hdf5_fov') from hdf5_gv_fovs.groupTuple()
 
     output:
     file("${sample}.hdf5") into final_out_ch

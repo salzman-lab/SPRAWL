@@ -2,6 +2,8 @@ import pytest
 import SRRS
 from SRRS import cell
 
+import shapely.geometry
+
 @pytest.mark.parametrize('dataset', ['m1s4','m2s4'])
 def test_iter_cells_count(dataset, request):
     dataset = request.getfixturevalue(dataset)
@@ -80,5 +82,20 @@ def test_iter_cells_filter_min_unique_genes_ge_threshold(dataset, min_genes, min
 
     num_filt_cells = sum(1 for c in cells)
     assert num_filt_cells == filt_count
+
+
+
+@pytest.mark.parametrize('dataset', ['m1s4','m2s4'])
+def test_shrunk_cells_area_decreases(dataset, request):
+    dataset = request.getfixturevalue(dataset)
+
+    for cell in dataset.iter_cells():
+        shrunk_cell = cell.shrink_boundaries(scale_factor=0.8)
+
+        for zslice in cell.zslices:
+            orig_p = shapely.geometry.Polygon(cell.boundaries[zslice])
+            shrunk_p = shapely.geometry.Polygon(shrunk_cell.boundaries[zslice])
+
+            assert orig_p.area > shrunk_p.area
 
 
