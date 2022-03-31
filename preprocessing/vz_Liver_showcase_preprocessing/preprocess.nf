@@ -76,8 +76,8 @@ process assign_spots_to_cells {
 process filter_and_variance_calc {
     cache 'lenient'
     memory '10 GB'
-    time '3h'
-    cpus 2
+    time '1h'
+    cpus 10 
 
 
     input:

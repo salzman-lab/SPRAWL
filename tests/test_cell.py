@@ -97,5 +97,6 @@ def test_shrunk_cells_area_decreases(dataset, request):
             shrunk_p = shapely.geometry.Polygon(shrunk_cell.boundaries[zslice])
 
             assert orig_p.area > shrunk_p.area
+            assert cell.n > shrunk_cell.n
 
 

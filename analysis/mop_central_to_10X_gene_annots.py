@@ -43,6 +43,7 @@ mop_to_10x_ann_map = {
     #'ventricle_1','ventricle_2'
 }
 mop_df['ontology'] = mop_df['ontology'].map(mop_to_10x_ann_map)
+mop_df = mop_df.drop(columns=['ontology']).dropna()
 mop_df.to_csv('/oak/stanford/groups/horence/rob/isoform_localizations/SRRS/outputs/gene_cell/MOp_central_10X_ontology.csv',index=False)
 
 #Calculate z from Lyapunov CLT for each gene in each sample

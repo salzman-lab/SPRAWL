@@ -42,7 +42,7 @@ def main():
     )
 
     #cache the expensive var calculations and write out to new hdf5
-    cells = scoring._iter_vars(cells)
+    cells = scoring._iter_vars(cells, processes=10) #NOTE
     SRRS.HDF5.write_cells(cells, args.out_path)
 
 

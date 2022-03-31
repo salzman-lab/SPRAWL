@@ -191,7 +191,7 @@ def _cell_var(cell, var_mem={}):
     return cell
 
 
-def _iter_vars(cells):
+def _iter_vars(cells, processes=2):
     """
     Helper function
     Calculate the theoretical variance of each gene in each cell
@@ -200,14 +200,14 @@ def _iter_vars(cells):
     manager = mp.Manager()
     var_mem = manager.dict()
 
-    with mp.Pool() as p:
+    with mp.Pool(processes=processes) as p:
         f = functools.partial(_cell_var, var_mem = var_mem)
         results = p.imap_unordered(f, cells)
         for result in results:
             yield result
 
 
-def _iter_scores(cells, metric_name):
+def _iter_scores(cells, metric_name, processes=2):
     """
     Helper function
     Apply the chosen scoring metric to each cell
@@ -218,7 +218,7 @@ def _iter_scores(cells, metric_name):
     metric_f = available_metrics[metric_name]
 
     #multiplex the scoring
-    with mp.Pool() as p:
+    with mp.Pool(processes=processes) as p:
         results = p.imap_unordered(metric_f, cells)
         for result in results:
             yield result
