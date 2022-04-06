@@ -1,0 +1,3 @@
+how to upload to s3
+
+aws s3 cp bladder_bladder_urothelial_cell.bedGraph s3://ucsc-readzs/

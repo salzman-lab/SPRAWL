@@ -1,0 +1,57 @@
+Goal is to test if Timp3 has differential 3' UTR usage in tabula sapiens samples
+
+I should be able to start with the ReadZs counts files instead of doing a rerun
+
+Roozbeh shared the counts files outputs here: /oak/stanford/groups/horence/Roozbeh/single_cell_project/processed_files/ReadZS/count_files
+
+I'll do the following steps
+1.  grep for Timp3 gene location in humans which is on chr22
+    Timp3 is a positive strand gene in humans but overlaps with Syn3, a negative strand gene
+    I'll not filter out negative strand reads yet but might do that further in the processing
+    I can also grep for the bins within the 3' UTR region approximately 32,859,136-32,863,072 (I assume 5kb bins?)
+    which is either bin 6572 or 6573 (ReadZs rounds up the bin numbers)
+
+    Here's the command I'm using for TSP1:
+    grep -e "chr22_6572" -e "chr22_6573" /oak/stanford/groups/horence/Roozbeh/single_cell_project/processed_files/ReadZS/count_files/TSP*10X/* > timp3_counts.tsv
+
+
+2.  Then I'll map the cell-types to the individual cells
+    The combined metadata is /oak/stanford/groups/horence/Roozbeh/single_cell_project/utility_files/meta_data/Tabula_Sapiens/TSP1_TSP15_scvi_donor-method_normalized-log1p-scaled_annotated.csv
+    
+    Code is in the jupyter notebook timp3_readzs_other_samples.ipynb
+
+    I'll then save out a table with the following columns:
+        pilot,tissue,10X_barcode,chr,pos,strand,count,sample,window,file_name,extended_cell_id,compartment,consensus_prediction
+
+    Output table is timp3_annotated_counts.csv which has a row for each cell/position/count
+
+
+3.  Collapse the position counts for each sample/ontology
+
+    Here is what the table looks like:
+    
+    pilot   tissue  compartment consensus_prediction    pos strand  count
+    0   TSP1    bladder stromal fibroblast  32855135    -   1
+    1   TSP1    bladder stromal fibroblast  32855314    +   1
+    2   TSP1    bladder stromal fibroblast  32855457    +   1
+    3   TSP1    bladder stromal fibroblast  32855499    +   1
+    4   TSP1    bladder stromal fibroblast  32855583    +   1
+
+    Code in the jupyter notebook
+
+    Double checked that the min position was near where I expected (32,855,021), and same for max position (32,864,804)
+
+    saved the table as: sample_ont_pos_timp3_counts.csv
+
+    there are 85,547 reads aligning to the plus strand (expected) and 7,234 aligning to the minus strand
+
+    There are only 4 unique consensus_predictions
+    fibroblast
+    capillary endothelial cell
+    type i pneumocyte
+    cd4-positive helper t cell
+
+
+4.  Make eCDF plots
+
+

@@ -13,7 +13,7 @@ import seaborn as sns
 
 import sys
 
-def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='grey'):
+def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='grey', rainbow=False):
     """
     3D plot of a cell
     optionally color spots by gene or rank
@@ -60,8 +60,23 @@ def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='
     genes = np.array(genes)
     show_legend = False
 
-    #Color all spots by rank
-    if color_by_rank:
+    if rainbow:
+        #Give each gene a different color
+        num_genes = len(np.unique(genes))
+        uniq_colors = sns.color_palette('viridis',num_genes)
+        gene_colors = {g:c for g,c in zip(sorted(np.unique(genes)),uniq_colors)}
+       
+        for gene,color in gene_colors.items():
+            gene_inds = genes == gene
+
+            if sum(gene_inds):
+                ax.scatter3D(xs[gene_inds], ys[gene_inds], zs[gene_inds], color=color, label=gene, s=35)
+                show_legend = True
+
+       
+
+    elif color_by_rank:
+        #Color all spots by rank
         #If trying to color by rank, but cell is not yet ranked, give a warning
         if not cell.ranked:
             sys.stderr.write('Warning: Trying to color by rank, but cell spots not yet ranked\n')
@@ -87,19 +102,18 @@ def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='
             xs[~colored_inds],
             ys[~colored_inds],
             zs[~colored_inds],
-            color='gray', s=36, zorder=-1,
+            color='gray', s=10, zorder=-1,
         )
 
+    #ax.view_init(elev=20, azim=0) #changing view angle, can be done on returned ax
+    ax.set_axis_off()
 
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_zticks([])
     plt.title('Celltype {}'.format(cell.annotation))
     if show_legend:
         plt.legend()
 
 
-    return fig
+    return fig,ax
 
 
 
