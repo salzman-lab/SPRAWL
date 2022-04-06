@@ -18,7 +18,7 @@ def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='
     3D plot of a cell
     optionally color spots by gene or rank
 
-    shows plot and also returns figure handle
+    returns figure handle and ax as tuple
     """
     #If gene colors given and coloring by rank, just color by rank
     gene_colors = {} if color_by_rank else gene_colors
@@ -122,7 +122,7 @@ def plot_cell_zslices(cell, gene_colors={}, color_by_rank=False, default_spot_co
     plot of a cell separated by z-slice
     optionally color spots by gene
 
-    shows plot and also returns figure handle
+    returns figure handle and axs as tuple
     """
     #If gene colors given and coloring by rank, just color by rank
     gene_colors = {} if color_by_rank else gene_colors
@@ -210,7 +210,7 @@ def plot_cell_zslices(cell, gene_colors={}, color_by_rank=False, default_spot_co
 
         #Determine which indices are colored/uncolored
         colors = np.array(colors)
-        uncolored_inds = np.array(colors) == default_spot_color
+        uncolored_inds = colors == default_spot_color
         colored_inds = ~uncolored_inds
 
         #Plot uncolored spots smaller
@@ -258,7 +258,7 @@ def plot_cell_zslices(cell, gene_colors={}, color_by_rank=False, default_spot_co
     if handles and labels:
         fig.legend(handles,labels)
 
-    return fig
+    return fig,axs
 
 
 
@@ -339,5 +339,5 @@ def plot_tissue_level(cells, color_by_score_gene=None, color_by_ontology=False, 
     plt.axis('equal')
     plt.axis('off')
 
-    return fig
+    return fig,ax
 
