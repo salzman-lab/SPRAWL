@@ -264,6 +264,7 @@ def _calc_p_twosided_helper(m_n_meds):
 
 def _calc_p_twosided(m_n_meds):
     """
+    NOTE Unused??
     multiprocessing approach to calculating utils.p_two_sided_med
 
     input is a dict of set like d[(m,n)] = set(med1,med2)
