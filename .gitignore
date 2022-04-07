@@ -16,6 +16,7 @@
 *.h5ad.*
 *.gtf
 *.bedGraph
+*.xml
 work/
 
 # Log files/implementation files
