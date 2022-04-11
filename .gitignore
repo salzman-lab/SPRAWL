@@ -17,6 +17,7 @@
 *.gtf
 *.bedGraph
 *.xml
+*.gpkg
 work/
 
 # Log files/implementation files

@@ -7,7 +7,6 @@ import math
 
 p_med_cache = {}
 ncr_mem = {}
-factors_cache = {}
 
 def score(obs_med, n):
     """

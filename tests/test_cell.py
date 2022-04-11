@@ -84,6 +84,27 @@ def test_iter_cells_filter_min_unique_genes_ge_threshold(dataset, min_genes, min
     assert num_filt_cells == filt_count
 
 
+@pytest.mark.parametrize('dataset', ['m1s4','m2s4'])
+def test_low_count_genes(dataset, request):
+    min_gene_spots = 2
+
+    dataset = request.getfixturevalue(dataset)
+
+    cells = dataset.cells()
+    orig_cell_count = len(cells)
+    min_gene_counts = [min(c.gene_counts.values()) for c in cells]
+
+    gene_filt_cells = [c.filter_low_count_genes(min_gene_spots) for c in cells]
+    filt_cell_count = len(gene_filt_cells)
+    filt_min_gene_counts = [min(c.gene_counts.values()) for c in gene_filt_cells]
+
+    correct_type = all(type(c) == cell.Cell for c in gene_filt_cells)
+
+    assert orig_cell_count == filt_cell_count
+    assert min(min_gene_counts) < min_gene_spots
+    assert min(filt_min_gene_counts) >= min_gene_spots
+    assert correct_type
+ 
 
 @pytest.mark.parametrize('dataset', ['m1s4','m2s4'])
 def test_shrunk_cells_area_decreases(dataset, request):

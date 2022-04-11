@@ -61,6 +61,53 @@ class Cell:
         return repr_str
 
 
+    def filter_low_count_genes(self, min_gene_spots=2):
+        """
+        Removes spots from genes which have fewer than the threshold number of counts in place
+        Returns self for use in chaining methods
+
+        Updates n and erases gene_vars since they will need to be recalculated
+        Also updates gene_counts by removing genes with below-threshold counts
+        Updates genes as well
+        """
+        self.gene_vars = {}
+        self.spot_ranks = {}
+        self.spot_values = {}
+
+        del_genes = {g for g,c in self.gene_counts.items() if c < min_gene_spots}
+        for g in del_genes:
+            del self.gene_counts[g]
+
+        self.genes = [g for g in self.genes if g not in del_genes]
+
+        new_zs = []
+        for z in self.zslices:
+            new_z_genes = []
+            new_z_coords = []
+            for g,xy in zip(self.spot_genes[z], self.spot_coords[z]):
+                if g in del_genes:
+                    self.n -= 1
+                    continue
+
+                new_z_genes.append(g)
+                new_z_coords.append(xy)
+
+            if len(new_z_genes):
+                new_zs.append(z)
+                self.spot_genes[z] = new_z_genes
+                self.spot_coords[z] = new_z_coords
+            else:
+                #if we've deleted all spots in a z-slice, remove it
+                del self.spot_genes[z]
+                del self.spot_coords[z]
+                del self.boundaries[z]
+
+
+        self.zlices = new_zs
+
+        return self
+
+
     def shrink_boundaries(self, scale_factor=0.8):
         """
         Shrink the cell boundaries inwards towards the cell center by a certain factor

@@ -202,8 +202,7 @@ def _iter_vars(cells, processes=2):
 
     with mp.Pool(processes=processes) as p:
         f = functools.partial(_cell_var, var_mem = var_mem)
-        results = p.imap_unordered(f, cells)
-        for result in results:
+        for result in p.imap_unordered(f, cells):
             yield result
 
 
@@ -219,8 +218,7 @@ def _iter_scores(cells, metric_name, processes=2):
 
     #multiplex the scoring
     with mp.Pool(processes=processes) as p:
-        results = p.imap_unordered(metric_f, cells)
-        for result in results:
+        for result in p.imap_unordered(metric_f, cells):
             yield result
 
 
