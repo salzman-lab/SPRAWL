@@ -32,5 +32,5 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/SRRS:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/srrs:latest
 
