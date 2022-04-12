@@ -1,4 +1,4 @@
-FROM python:3.8-slim
+FROM python:3.8
 
 #Install SRRS python package
 ADD setup.py setup.cfg pyproject.toml requirements_test.txt MANIFEST.in SRRS/
