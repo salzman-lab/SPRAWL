@@ -60,13 +60,11 @@ def iter_scores(cells, metric):
         yield df
 
 
-def gene_celltype_scoring(srrs_df):
+def gene_celltype_scoring(srrs_df, min_cells_per_gene_ont=1, extra_cols={}):
     """
     Calculates gene/cell-type SRRS scores
-    This function doesn't do any filtering
-    Filtering should be done beforehand
 
-    input in the form of a pd.DataFrame with the following columns
+    input in the form of a pd.DataFrame with the following columns (not necessarily in this order)
          'metric' peripheral/polar etc
          'cell_id' the cell id. will be the same for every row
          'annotation' The cell-type annotation
@@ -77,24 +75,21 @@ def gene_celltype_scoring(srrs_df):
          'score' value ranging from -1 to 1
          'variance' theoretical variance under the null
 
-    Output in the form of a pd.DataFrame with the following columns
-         'metric' peripheral/polar etc
-         'gene' gene name
-         'annotation' The cell-type annotation
-         'num_cells' The number of cells in this annotation
-         'med_gene_spots' median number of spots of gene of interest across cells in this annotation
-         'med_num_spots' median number of total across cells in this annotation
-         'med_score' median SRRS score per gene/annotation
-         'z_score' Lyapunov calculated z-score
-         'two_sided_p' BH corrected p for the multiple gene/celltype tests
+    Output in the form of an aggregated pd.DataFrame where each row is a gene/ont
 
-    Extra input columns are tolerated but not caried through to the output
+    Extra columns can be added to the output using extra_cols
     """
-    #TODO this can be made more efficient by grouping sooner 1/5/2022
 
+    #Table can be passed in as a df or a path to the df
+    if isinstance(srrs_df,str):
+        srrs_df = pd.read_csv(srrs_df)
+
+    gb_cols = ['gene','annotation']
+
+    #Filter out gene/onts that have too few cells
+    srrs_df = srrs_df.groupby(gb_cols).filter(lambda g: g['cell_id'].nunique() >= min_cells_per_gene_ont)
 
     #calculate the z-scores using Lyapunov approximation
-    gb_cols = ['gene','annotation']
     z_scores = {}
     for k,g in srrs_df.groupby(gb_cols):
         z_score = g['score'].sum()/np.sqrt(g['variance'].sum())
@@ -141,6 +136,9 @@ def gene_celltype_scoring(srrs_df):
         p = ('two_sided_p','first'),
         bh_p = ('bh_corrected_two_sided_p','first'),
     ).reset_index(drop=True)
+
+    for col,val in extra_cols.items():
+        agg_df[col] = val
 
     return agg_df
 

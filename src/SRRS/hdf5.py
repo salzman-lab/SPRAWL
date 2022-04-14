@@ -19,6 +19,7 @@ class HDF5:
         str_repr = 'HDF5 {}'.format(self.path)
         return str_repr
 
+
     def fhandle(func):
         """
         Decorator to open and close hdf5
@@ -26,6 +27,20 @@ class HDF5:
         def wrapper(self, *args, **kwargs):
             self._f = h5py.File(self.path,'r')
             ret = func(self, *args, **kwargs)
+            self._f.close()
+            return ret
+
+        return wrapper
+
+
+    def fhandle_iter(func):
+        """
+        Decorator to open and close hdf5
+        for use with generators
+        """
+        def wrapper(self, *args, **kwargs):
+            self._f = h5py.File(self.path,'r')
+            ret = yield from func(self, *args, **kwargs)
             self._f.close()
             return ret
 
@@ -79,26 +94,27 @@ class HDF5:
         return cells
 
 
+    @fhandle
     def cells(self):
         """
         return a list of Cell objects
         """
         cells = []
-        with h5py.File(self.path,'r') as _f:
-            for cell_id,cell_group in _f['cells'].items():
-                cells.append(cell.Cell(cell_group))
+        for cell_id,cell_group in self._f['cells'].items():
+            cells.append(cell.Cell(cell_group))
 
         return cells
 
 
+    @fhandle_iter
     def iter_cells(self):
         """
         produce an iterator of Cell objects
         """
-        with h5py.File(self.path,'r') as _f:
-            for cell_id,cell_group in _f['cells'].items():
-                yield cell.Cell(cell_group)
-
+        for enc_cell_id in self._f['cell_ids']:
+            cell_id = enc_cell_id.decode()
+            cell_group = self._f['cells'][cell_id]
+            yield cell.Cell(cell_group)
 
 
     def save_gene_vars(self,cells):
