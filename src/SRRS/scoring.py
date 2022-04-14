@@ -26,7 +26,7 @@ def iter_scores(cells, metric):
     Apply the chosen scoring metric to each cell
     utilizes multiprocessing
 
-    yields an iterator of dataframes each with score info
+    yields an iterator of dataframes, one for each cell, each with score info
          'metric' peripheral/polar etc
          'cell_id' the cell id. will be the same for every row
          'annotation' The cell-type annotation information. same for all rows
@@ -87,6 +87,8 @@ def gene_celltype_scoring(srrs_df):
          'med_score' median SRRS score per gene/annotation
          'z_score' Lyapunov calculated z-score
          'two_sided_p' BH corrected p for the multiple gene/celltype tests
+
+    Extra input columns are tolerated but not caried through to the output
     """
     #TODO this can be made more efficient by grouping sooner 1/5/2022
 

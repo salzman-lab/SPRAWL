@@ -150,7 +150,7 @@ class HDF5:
                 f_cell.attrs['num_spots'] = sum(cell.gene_counts.values())
                 f_cell.attrs['zslices'] = cell.zslices
 
-                #create boundaries, sport_coords, and spot_genes
+                #create boundaries, spot_coords, and spot_genes
                 f_bounds = f_cell.create_group('boundaries')
                 f_coords = f_cell.create_group('spot_coords')
                 f_genes = f_cell.create_group('spot_genes')

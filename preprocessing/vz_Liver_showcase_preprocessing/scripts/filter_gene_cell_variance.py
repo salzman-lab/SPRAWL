@@ -16,7 +16,10 @@ def parse_args():
     parser.add_argument('--out_path', dest='out_path', required=True,
                         help='Path to output hdf5 file')
 
-    parser.add_argument('--min_spots', dest='min_spots', required=True, type=int,
+    parser.add_argument('--min_gene_spots', dest='min_gene_spots', required=True, type=int,
+                        help='Minimum spots for a gene to be kept in a cell')
+
+    parser.add_argument('--min_tot_spots', dest='min_tot_spots', required=True, type=int,
                         help='Minimum spots in a cell to be filtered-in')
 
     parser.add_argument('--min_genes', dest='min_genes', required=True, type=int,
@@ -33,13 +36,16 @@ def main():
     args = parse_args()
 
     sample = SRRS.HDF5(args.hdf5_path)
+    cells = sample.iter_cells()
 
-    #Filter out cells with fewer than X total spots
-    #Filter out cells with fewer than Y unique genes
-    cells = (
-        c for c in sample.iter_cells()
-        if c.n >= args.min_spots and len(c.genes) >= args.min_genes
-    )
+    #Filter out genes in cells that have only 1 spot
+    cells = (c.filter_low_count_genes(args.min_gene_spots) for c in cells)
+
+    #Then filter out cells with fewer than threshold total spots
+    cells = (c for c in cells if c.n >= args.min_tot_spots)
+
+    #Filter out cells with fewer than threshold unique genes
+    cells = (c for c in cells if len(c.genes) >= args.min_genes)
 
     #cache the expensive var calculations and write out to new hdf5
     cells = scoring._iter_vars(cells, processes=10) #NOTE

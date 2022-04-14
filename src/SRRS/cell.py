@@ -92,7 +92,7 @@ class Cell:
                 new_z_genes.append(g)
                 new_z_coords.append(xy)
 
-            if len(new_z_genes):
+            if len(new_z_genes) > 0:
                 new_zs.append(z)
                 self.spot_genes[z] = new_z_genes
                 self.spot_coords[z] = new_z_coords
@@ -103,7 +103,7 @@ class Cell:
                 del self.boundaries[z]
 
 
-        self.zlices = new_zs
+        self.zslices = new_zs
 
         return self
 

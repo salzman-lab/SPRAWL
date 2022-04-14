@@ -13,7 +13,8 @@ boundaries = Channel.fromFilePairs(
     size: -1,
 ){ file -> file.name.replaceAll(/_feature_data_.*$/,'') }
 
-min_filt_spots = 100
+min_gene_spots = 2
+min_tot_spots = 100
 min_uniq_genes = 10
 
 
@@ -75,7 +76,7 @@ process assign_spots_to_cells {
 // Filter and calculate gene-cell variances
 process filter_and_variance_calc {
     cache 'lenient'
-    memory '10 GB'
+    memory '20 GB'
     time '1h'
     cpus 10 
 
@@ -91,7 +92,8 @@ process filter_and_variance_calc {
     ${scriptsDir}/filter_gene_cell_variance.py \
         --hdf5_path ${srrs_hdf5} \
         --out_path spot_assigned_fov_gv.hdf5 \
-        --min_spots ${min_filt_spots} \
+        --min_gene_spots ${min_gene_spots} \
+        --min_tot_spots ${min_tot_spots} \
         --min_genes ${min_uniq_genes} \
     """
 
@@ -100,7 +102,6 @@ process filter_and_variance_calc {
     touch spot_assigned_fov_gv.hdf5
     """
 }
-
 
 
 // Merge fovs
