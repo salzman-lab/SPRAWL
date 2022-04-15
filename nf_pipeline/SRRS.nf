@@ -42,36 +42,59 @@ process merge_gene_cells {
     tuple val(experiment), val(metric), file('gene_cell') from sample_gene_cell_ch.groupTuple(by: [0,1])
 
     output:
-    tuple val(experiment), val(metric), file("${experiment}_${metric}.csv") into gene_cell_ch
+    tuple val(experiment), val(metric), file("${experiment}_${metric}_gene_cell.csv") into gene_cell_ch
 
     script:
     """
-    awk '(NR == 1) || (FNR > 1)' gene_cell* > "${experiment}_${metric}.csv" 
+    awk '(NR == 1) || (FNR > 1)' gene_cell* > "${experiment}_${metric}_gene_cell.csv" 
     """
 }
+
+//Duplicate the gene_cell_ch to use for gene_ont and for plotting
+gene_cell_ch.into{ scoring_gene_cell_ch; plotting_gene_cell_ch }
 
 
 process gene_ont_scoring {
     publishDir "outputs/${params.run_name}/gene_ont", mode: 'copy'
 
     input:
-    tuple val(experiment), val(metric), file(gene_cell) from gene_cell_ch
+    tuple val(experiment), val(metric), file(gene_cell) from scoring_gene_cell_ch
 
     output:
-    file("${experiment}_${metric}.csv") into gene_ont_ch
+    file("${experiment}_${metric}_gene_ont.csv") into gene_ont_ch
 
     script:
     """
     gene_ont_scoring.py \
         --gene_cell_path ${gene_cell} \
-        --output_name "${experiment}_${metric}.csv" \
+        --output_name "${experiment}_${metric}_gene_ont.csv" \
         --min_cells_per_gene_ont ${params.min_cells_per_gene_ont} \
     """
 
 }
 
 
+
+process gene_cell_plotting {
+    publishDir "outputs/${params.run_name}/plots", mode: 'copy'
+
+    input:
+    tuple val(experiment), val(metric), file(gene_cell) from plotting_gene_cell_ch
+
+    output:
+    file("${experiment}_${metric}_gene_cell_plots.pdf") into gene_cell_plots_ch
+
+    script:
+    """
+    gene_cell_plotting.py \
+        --gene_cell_path ${gene_cell} \
+        --metric ${metric} \
+        --experiment ${experiment} \
+        --output_name "${experiment}_${metric}_gene_cell_plots.pdf" \
+    """
+}
+
+
+
 gene_ont_ch.view()
-
-
 

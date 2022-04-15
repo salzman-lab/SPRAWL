@@ -122,9 +122,16 @@ def gene_celltype_scoring(srrs_df, min_cells_per_gene_ont=1, extra_cols={}):
     else:
         srrs_df['bh_corrected_two_sided_p'] = None
 
+    #Add experiment and sample columns if not present
+    if 'experiment' not in srrs_df:
+        srrs_df['experiment'] = 'experiment1'
+    if 'sample' not in srrs_df:
+        srrs_df['sample'] = 'sample1'
 
     #groupby sample/gene/annotation with bh_p
     agg_df = srrs_df.groupby(gb_cols).agg(
+        experiment = ('experiment','first'),
+        sample = ('sample','first'),
         metric = ('metric','first'),
         gene = ('gene','first'),
         annotation = ('annotation','first'),
