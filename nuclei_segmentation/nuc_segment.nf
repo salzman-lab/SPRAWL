@@ -30,10 +30,11 @@ Channel
 
 
 // Nuclei segmentation and assignment to cells
+// Each job from this process handles a all fovs for a single sample/zslice 
 process create_nuclei_boundaries {
 
     input:
-    tuple val(sample), val(z), file(mosaic), file(transform), val(fov), file(hdf5_fov) from mosaic_ch.combine(fov_ch, by: 0)
+    tuple val(sample), val(z), file(mosaic), file(transform), val(fov), file('hdf5_fov') from mosaic_ch.combine(fov_ch, by: 0).groupTuple(by: [0,1,2,3]).view()
     
     output:
     file('cell_nuc.gpkg') into nuclei_ch
@@ -45,8 +46,7 @@ process create_nuclei_boundaries {
         --z ${z} \
         --mosaic ${mosaic} \
         --transform ${transform} \
-        --fov ${fov} \
-        --hdf5_fov ${hdf5_fov} \
+        --hdf5_fovs hdf5_fov* \
     """
 }
 
@@ -67,8 +67,6 @@ process merge {
         --cell_nucs cell_nucs* \
     """
 }
-
-
 
 
 

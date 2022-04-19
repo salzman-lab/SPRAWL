@@ -15,42 +15,19 @@ import geopandas
 
 import argparse
 import sys
+import os
 
-def main():
-    #Parse args
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--sample')
-    parser.add_argument('--z')
-    parser.add_argument('--mosaic')
-    parser.add_argument('--transform')
-    parser.add_argument('--fov')
-    parser.add_argument('--hdf5_fov')
-    args = parser.parse_args()
+#globally store entire image
+im = None
 
-    print(args)
-    sys.stdout.flush()
-
-    #Read in the pixel to micron scaling and make helper functions
-    A_micron_to_mosaic = np.genfromtxt(
-        args.transform,
-        delimiter=' ',
-    )
-    A_mosaic_to_micron = np.linalg.inv(A_micron_to_mosaic)#get the opposite direction transformation matrix
-
-    pixel_to_micron = lambda x,y: np.matmul(A_mosaic_to_micron,[[x],[y],[1]])[:2].flatten()
-    micron_to_pixel = lambda x,y: np.matmul(A_micron_to_mosaic,[[x],[y],[1]])[:2].flatten()
-
-
-    #Read in the DAPI stain image
-    im = io.imread(args.mosaic)
-
-    #Get the fov bounds in pixels to subset the DAPI image
+def get_fov_boundaries(hdf5_fov):
+    #Get the fov bounds in microns
     fov_micron_min_x = None
     fov_micron_min_y = None
     fov_micron_max_x = None
     fov_micron_max_y = None
 
-    with h5py.File(args.hdf5_fov,'r') as f:
+    with h5py.File(hdf5_fov,'r') as f:
         for cell_id in f['featuredata']:
             micron_min_x,micron_min_y,micron_max_x,micron_max_y = f['featuredata'][cell_id].attrs['bounding_box']
 
@@ -63,8 +40,28 @@ def main():
             if not fov_micron_max_y or micron_max_y > fov_micron_max_y:
                 fov_micron_max_y = micron_max_y
 
+    return fov_micron_min_x,fov_micron_min_y,fov_micron_max_x,fov_micron_max_y
+
+
+def nuclei_segment_fov(transform, hdf5_fov):
+    """
+    Segment the nuclei within a field of view and assign nuclei to cells by boundary
+    """
+    #Read in the pixel to micron scaling and make helper functions
+    A_micron_to_mosaic = np.genfromtxt(
+        transform,
+        delimiter=' ',
+    )
+    A_mosaic_to_micron = np.linalg.inv(A_micron_to_mosaic)#get the opposite direction transformation matrix
+
+    pixel_to_micron = lambda x,y: np.matmul(A_mosaic_to_micron,[[x],[y],[1]])[:2].flatten()
+    micron_to_pixel = lambda x,y: np.matmul(A_micron_to_mosaic,[[x],[y],[1]])[:2].flatten()
+
+    #Get the boundaries to use to subset the image and convert them to pixels
+    fov_micron_min_x,fov_micron_min_y,fov_micron_max_x,fov_micron_max_y = get_fov_boundaries(hdf5_fov)
     fov_pixel_min_x,fov_pixel_min_y = micron_to_pixel(fov_micron_min_x, fov_micron_min_y)
     fov_pixel_max_x,fov_pixel_max_y = micron_to_pixel(fov_micron_max_x, fov_micron_max_y)
+
 
     fov_img = im[
         int(fov_pixel_min_y):int(fov_pixel_max_y),
@@ -83,8 +80,6 @@ def main():
     segmentation = watershed(elevation_map, markers)
     segmentation = ndi.binary_fill_holes(segmentation - 1)
 
-
-
     #THIS GIVES BACK (y,x) for some reason!!
     #followed tutorial here: https://scikit-image.org/docs/dev/auto_examples/edges/plot_polygon.html#sphx-glr-auto-examples-edges-plot-polygon-py
     raw_nuclei_polys = find_contours(segmentation,0)
@@ -94,10 +89,7 @@ def main():
     cell_ids = []
 
     #Iterate through returned nuclei polys and test if they fit within any of the cell boundaries
-    with h5py.File(args.hdf5_fov,'r') as f:
-        print('Num cells ',len(f['featuredata'].keys()))
-        print('Num nucs ',len(raw_nuclei_polys))
-        
+    with h5py.File(hdf5_fov,'r') as f:
         for cell_id in f['featuredata']:
             cell = f['featuredata'][cell_id]
             cell_micron_coords = cell['zIndex_0']['p_0']['coordinates'][0,:,:]
@@ -136,21 +128,54 @@ def main():
                     cell_ids.append(cell_id)
                     
     gdf = geopandas.GeoDataFrame({
-        'sample':args.sample,
-        'fov':args.fov,
-        'z':args.z,
         'cell_id':cell_ids,
         'geometry':micron_nuclei_polys,
     })
     gdf['area'] = gdf.area
 
-    if gdf.empty:
-        #Have to handle no nucleus case specially, not allowed to write an empty file
-        #will have to deal with this in the merging script as well
+    return gdf
+
+
+def main():
+    global im
+
+    #Parse args
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--sample')
+    parser.add_argument('--z')
+    parser.add_argument('--mosaic')
+    parser.add_argument('--transform')
+    parser.add_argument('--hdf5_fovs', nargs='+')
+    args = parser.parse_args()
+
+    #Read in the DAPI stain image (slowest step?)
+    im = io.imread(args.mosaic)
+
+    #Iterate through all fov's of this sample at this z-slice
+    #write out in append mode to avoid storing all in memory
+    written = False
+    for hdf5_fov in args.hdf5_fovs:
+        sys.stdout.write(hdf5_fov+'\n')
+        sys.stdout.flush()
+
+        fov_gdf = nuclei_segment_fov(args.transform, hdf5_fov)
+
+        if fov_gdf.empty:
+            continue
+
+        fov_gdf['sample'] = args.sample
+        fov_gdf['z'] = args.z
+        fov_gdf['fov'] = os.path.basename(hdf5_fov)
+        fov_gdf.to_file('cell_nuc.gpkg', driver='GPKG', mode=('w' if not written else 'a'))
+        written = True
+ 
+    #Have to handle no nucleus case specially, not allowed to write an empty file
+    #will have to deal with this in the merging script as well
+    #(don't actually expect this to happen)
+    if not written:
         with open('cell_nuc.gpkg','w') as f:
             f.write('empty file\n')
-    else:
-        gdf.to_file('cell_nuc.gpkg', driver='GPKG') #GPKG saves out a single file instead of many as shp does
+
 
 if __name__ == '__main__':
     main()
