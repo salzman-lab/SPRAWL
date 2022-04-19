@@ -12,7 +12,7 @@ Channel
     .set{ samples_ch } 
 
 //Decide which metrics to score by
-metrics_ch = Channel.of('central','peripheral')
+metrics_ch = Channel.of('central','peripheral','radial','punctate')
 
 process gene_cell_scoring {
     input:

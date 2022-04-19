@@ -128,7 +128,7 @@ def gene_cell_sim_null_peripheral(cells, within_z=True, n_its=1000, alpha=0.05):
     return pd.DataFrame(data)
 
 
-def null_permute_gene_labels(cell, within_z=True):
+def null_permute_gene_labels(cell, within_z=True, update_ranks=False):
     """
     Take as input a Cell object
     permutes in place but also returns Cell object reference
@@ -153,7 +153,10 @@ def null_permute_gene_labels(cell, within_z=True):
             i += slice_spots
 
     #Update the median ranks after permuting the gene labels
-    metrics._update_med_ranks(cell)
+    #(only makes sense to do for periph and central)
+    if update_ranks:
+        metrics._update_med_ranks(cell)
+
     return cell
 
 

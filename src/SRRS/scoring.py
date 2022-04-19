@@ -110,7 +110,7 @@ def gene_celltype_scoring(srrs_df, min_cells_per_gene_ont=1, extra_cols={}):
     if len(dedup_df) > 1:
         passes,adj_p,_,_ = multitest.multipletests(
             dedup_df['two_sided_p'],
-            alpha = 0.05, #just need a stand in value
+            alpha = 0.05,
             method = 'fdr_bh',
         )
         dedup_df['bh_corrected_two_sided_p'] = adj_p

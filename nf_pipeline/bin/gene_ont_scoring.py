@@ -15,7 +15,6 @@ def main():
     agg_df = scoring.gene_celltype_scoring(
         args.gene_cell_path,
         min_cells_per_gene_ont=args.min_cells_per_gene_ont,
-        extra_cols = {'':''},
     )
 
     agg_df.to_csv(args.output_name, index=False)

@@ -105,6 +105,15 @@ def central(cell):
     return cell
 
 
+def multi_spot_proximity(cell):
+    """
+    Multi-spot proximity metric
+
+    Creates an x,y grid of points within a cell
+    Scores each gene's proximity to each spot similarly to the central metric
+    """
+    pass
+
 
 def _peripheral_dist_and_rank(cell):
     """
@@ -224,7 +233,8 @@ def _punctate_dist_and_rank(cell):
     for gene,vec in zip(spot_genes,spot_coords):
         cx,cy = gene_centroids[gene]
         x,y = vec
-        spot_dists.append((cx-x)*(cx-x)+(cy-y)*(cy-y))
+        dist = (cx-x)*(cx-x)+(cy-y)*(cy-y)
+        spot_dists.append(dist)
 
     #Rank spots by angle residuals
     spot_ranks = np.array(spot_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
