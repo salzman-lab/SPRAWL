@@ -21,7 +21,7 @@ available_metrics = {
     'central':metrics.central,
 }
 
-def iter_scores(cells, metric):
+def iter_scores(cells, metric, processes=2):
     """
     Apply the chosen scoring metric to each cell
     utilizes multiprocessing
@@ -37,10 +37,8 @@ def iter_scores(cells, metric):
          'score' value ranging from -1 to 1
          'variance' theoretical variance under the null
     """
-    logging.debug('Scoring with {} cpu cores'.format(mp.cpu_count()))
-
-    cells = _iter_vars(cells)
-    cells = _iter_scores(cells,metric)
+    cells = _iter_vars(cells, processes=processes)
+    cells = _iter_scores(cells,metric, processes=processes)
 
     for cell in cells:
         genes = cell.gene_med_ranks.keys()

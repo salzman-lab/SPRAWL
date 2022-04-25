@@ -1,20 +1,13 @@
 import shapely.geometry
-from scipy import stats
 
 import pandas as pd
 import numpy as np
 import collections
-import h5py
+import random
 import os
 
-import operator as op
-from functools import reduce
-import collections
-import logging
-import math
-import time
-
 from . import utils
+from . import simulate
 
 def _update_med_ranks(cell):
     #mark this cell as ranked to avoid duplicate work
@@ -78,16 +71,50 @@ def radial(cell):
     return cell
 
 
-def punctate(cell):
+def punctate(cell, num_iterations=100):
     """
     Punctate metric
-    """
-    if cell.ranked:
-        return cell
 
-    cell = _punctate_dist_and_rank(cell)
-    cell = _update_med_ranks(cell)
-    return cell
+    Performs a first iterative step of randomly choosing two spots from each gene
+    Then ranks the genes based on the distance between their respective two spots?
+    Doesn't make sense to rank individual spots? since spots of the same gene will get the same rank?
+
+    gene/cell score is the normalized average gene rank over all iterations
+    Non-normalized score is expected to be (num_genes+1)/2
+    """
+    spot_gene_coords = [
+        (g,(x,y)) for z in cell.zslices 
+        for g,(x,y) in zip(cell.spot_genes[z],cell.spot_coords[z])
+    ]
+
+    all_ranks_df = pd.DataFrame()
+
+    for i in range(num_iterations):
+        #shuffle the spot order
+        random.shuffle(spot_gene_coords)
+
+        #choose two spots from each gene to be representatives (NOTE can do this more efficiently!)
+        g_reps = {g:[] for g in cell.genes}
+        for gene,xy in spot_gene_coords:
+            if len(g_reps[gene]) < 2:
+                g_reps[gene].append(xy)
+
+        dists = []
+        for gene in g_reps:
+            x1,y1 = g_reps[gene][0]
+            x2,y2 = g_reps[gene][1]
+            dists.append((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2))
+            
+        gene_ranks = np.array(dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
+
+        #dists and ranks will always be in the order of the cell.genes
+        gene_ranks_df = pd.DataFrame({'gene':cell.genes,'rank':gene_ranks,'iteration':i})
+    
+        all_ranks_df = pd.concat((all_ranks_df, gene_ranks_df),ignore_index=True)
+
+    all_ranks_df['spot_count'] = all_ranks_df['gene'].map(cell.gene_counts)
+
+    return all_ranks_df
 
 
 def central(cell):

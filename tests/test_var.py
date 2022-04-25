@@ -97,7 +97,7 @@ def test_empirical_p_med_under_null(seed,m,n,med):
     emp_p_two_sided = 2*(min(emp_p_le, emp_p_ge)+emp_p_med)
     assert abs(theory_p_two_sided-emp_p_two_sided) < threshold
 
-
+@pytest.mark.skip(reason='scoring._calc_p_twosided_helper not used in the code')
 @pytest.mark.parametrize(
     'm_n_meds',[
         ((4,50),(1,4,20.5,30.5)),
@@ -125,7 +125,7 @@ def test_p_twosided_helper(m_n_meds):
 
 
 
-
+@pytest.mark.skip(reason='scoring._iter_vars not used in the code')
 @pytest.mark.slow
 def test_iter_vars(m1s4):
     cells = m1s4.iter_cells()
