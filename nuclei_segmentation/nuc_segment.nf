@@ -32,6 +32,7 @@ Channel
 // Nuclei segmentation and assignment to cells
 // Each job from this process handles a all fovs for a single sample/zslice 
 process create_nuclei_boundaries {
+    cache 'lenient'
 
     input:
     tuple val(sample), val(z), file(mosaic), file(transform), val(fov), file('hdf5_fov') from mosaic_ch.combine(fov_ch, by: 0).groupTuple(by: [0,1,2,3])
