@@ -11,54 +11,87 @@ import os
 from . import utils
 from . import simulate
 
-def _update_med_ranks(cell):
-    #mark this cell as ranked to avoid duplicate work
-    cell.ranked = True
-
-    #Pull out the gene ranks
-    gene_ranks = collections.defaultdict(list)
-    for z in cell.zslices:
-        for gene,rank in zip(cell.spot_genes[z],cell.spot_ranks[z]):
-            gene_ranks[gene].append(rank)
-
-    #Iterate through unique genes to assign per-gene scores
-    for gene,ranks in gene_ranks.items():
-        cell.gene_med_ranks[gene] = np.median(ranks)
-
-    return cell
-
-
 ########################
 #   Metrics guidelines #
 ########################
-# Each metric function needs to take in a Cell object (from cell.py)
-# and output the same Cell with gene_med_ranks dictionary filled in for each gene
+# Each metric function needs to take in a list of Cell object (from cell.py)
+# and output the a table of Cell ids with gene_scores and gene_vars
+
 # The metric function calculates the per-gene score for all genes in the cell
 #   e.g. the periphery ranking, this will be based on the minimum distance of each spot to the periph
 #   e.g. the radial ranking this will be based on the min angle dist of each spot to the gene radial center
 
-def _test(cell):
+def _test(cells):
     """
     Test metric
     Returns a cell with all med ranks equal to (cell.n+1)/2
         score - 0
     """
     for g in cell.genes:
-        cell.gene_med_ranks[g] = (cell.n+1)/2
+        cell.gene_scores[g] = 0
+        cell.gene_vars[g] = 1
 
     return cell
 
 
-def peripheral(cell):
+def peripheral(cells, processes=2):
     """
     Peripheral metric
     """
-    if cell.ranked:
-        return cell
 
-    cell = _peripheral_dist_and_rank(cell)
-    cell = _update_med_ranks(cell)
-    return cell
+    #calculate the theoretical gene/cell variances (multiprocessing)
+    cells = utils._iter_vars(cells, processes)
+
+    data = {
+        'metric':[],
+        'cell_id':[],
+        'annotation':[],
+        'num_spots':[],
+        'gene':[],
+        'num_gene_spots':[],
+        'score':[],
+        'variance':[],
+    }
+
+    #score the cells (NOTE! make this multiprocessing)
+    for cell in cells:
+        periph_dists = []
+        spot_genes = []
+
+        for zslice in cell.zslices:
+
+            #Calculate dists of each spot to periphery
+            z_boundary = cell.boundaries[zslice]
+            z_spot_coords = cell.spot_coords[zslice]
+            z_spot_genes = cell.spot_genes[zslice]
+
+            poly = shapely.geometry.Polygon(z_boundary)
+            for xy,gene in zip(z_spot_coords,z_spot_genes):
+                dist = poly.boundary.distance(shapely.geometry.Point(xy))
+                periph_dists.append(dist)
+                spot_genes.append(gene)
+
+        #Rank the spots
+        spot_genes = np.array(spot_genes)
+        spot_ranks = np.array(periph_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
+
+        #score the genes
+        exp_med = (cell.n+1)/2
+        for gene in cell.genes:
+            gene_ranks = spot_ranks[spot_genes == gene]
+            obs_med = np.median(gene_ranks)
+            score = (exp_med-obs_med)/(exp_med-1)
+
+            data['metric'].append('periph')
+            data['cell_id'].append(cell.cell_id)
+            data['annotation'].append(cell.annotation)
+            data['num_spots'].append(cell.n)
+            data['gene'].append(gene)
+            data['num_gene_spots'].append(cell.gene_counts[gene])
+            data['score'].append(score)
+            data['variance'].append(cell.gene_vars[gene])
+
+    return pd.DataFrame(data)
 
 
 def radial(cell):
@@ -128,6 +161,8 @@ def punctate(cell, num_iterations=1000, num_pairs=4):
         'var':[],
     }
 
+    pre_calc_nulls = {}
+
     for gene,count in cell.gene_counts.items():
 
         # Calculate the obs mean dist
@@ -135,13 +170,18 @@ def punctate(cell, num_iterations=1000, num_pairs=4):
         obs_dist = random_mean_pairs_dist(gene_spots)
 
         # Null distribution by gene-label swapping
-        null_dists = []
-        for i in range(num_iterations):
-            spot_inds = np.random.choice(cell.n,count,replace=False)
-            null = random_mean_pairs_dist(all_spots[spot_inds])
-            null_dists.append(null)
+        if count in pre_calc_nulls:
+            null_dists = pre_calc_nulls[count]
 
-        null_dists = np.array(null_dists)
+        else:
+            null_dists = []
+            for i in range(num_iterations):
+                spot_inds = np.random.choice(cell.n,count,replace=False)
+                null = random_mean_pairs_dist(all_spots[spot_inds])
+                null_dists.append(null)
+
+            null_dists = np.array(null_dists)
+            pre_calc_nulls[count] = null_dists
 
         obs = sum(null_dists < obs_dist)
         exp = len(null_dists)/2
@@ -177,36 +217,6 @@ def _peripheral_dist_and_rank(cell):
     """
     Helper function to calculate peripheral ranks
     """
-    min_periph_dists = []
-    min_spot_genes = []
-
-    for zslice in cell.zslices:
-
-        #Calculate dists of each spot to periphery
-        boundary = cell.boundaries[zslice]
-        spot_coords = cell.spot_coords[zslice]
-        spot_genes = cell.spot_genes[zslice]
-
-        poly = shapely.geometry.Polygon(boundary)
-        for p,gene in zip(spot_coords,spot_genes):
-            dist = poly.boundary.distance(shapely.geometry.Point(p))
-            min_periph_dists.append(dist)
-            min_spot_genes.append(gene)
-
-    #Rank the spots
-    min_spot_genes = np.array(min_spot_genes)
-    spot_ranks = np.array(min_periph_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
-
-    #save the ranks back to the cell object by z-slice
-    start_i = 0
-    for zslice in cell.zslices:
-        end_i = cell.n_per_z[zslice]+start_i
-        cell.spot_ranks[zslice] = spot_ranks[start_i:end_i]
-        cell.spot_values[zslice] = min_periph_dists[start_i:end_i]
-        start_i = end_i
-
-    return cell
-
 
 
 def _radial_dist_and_rank(cell):

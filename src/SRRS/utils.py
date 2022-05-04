@@ -1,3 +1,4 @@
+import multiprocessing as mp
 import operator as op
 import numpy as np
 import collections
@@ -210,4 +211,36 @@ def calc_var(m,n,approx_evens=False):
     else:
         return _calc_var_helper(m,n)
 
+
+def _cell_var(cell, var_mem={}):
+    """
+    Helper function to calculate theoretical gene variance
+    utilizes manager.dict() shared memory
+    adds gene_vars as a member of the cell object
+    """
+    #If the gene_vars are already calculated, just return the cell
+    if cell.gene_vars:
+        return cell
+
+    n = cell.n
+    for g,m in cell.gene_counts.items():
+        if (m,n) not in var_mem:
+            var_mem[(m,n)] = calc_var(m,n)
+        cell.gene_vars[g] = var_mem[(m,n)]
+
+    return cell
+
+
+def _iter_vars(cells, processes=2):
+    """
+    Calculate the theoretical variance of each gene in each cell
+    utilizes multiprocessing
+    """
+    manager = mp.Manager()
+    var_mem = manager.dict()
+
+    with mp.Pool(processes=processes) as p:
+        f = functools.partial(_cell_var, var_mem = var_mem)
+        for cell in p.imap_unordered(f, cells):
+            yield cell
 
