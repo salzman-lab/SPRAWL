@@ -3,7 +3,9 @@ import shapely.geometry
 import pandas as pd
 import numpy as np
 import collections
+import itertools
 import random
+import math
 import os
 
 from . import utils
@@ -71,50 +73,88 @@ def radial(cell):
     return cell
 
 
-def punctate(cell, num_iterations=100):
+def punctate(cell, num_iterations=1000, num_pairs=4):
     """
     Punctate metric
 
-    Performs a first iterative step of randomly choosing two spots from each gene
-    Then ranks the genes based on the distance between their respective two spots?
-    Doesn't make sense to rank individual spots? since spots of the same gene will get the same rank?
+    Steps of this new method:
+    1. Remove genes with 1 spot from consideration (should already be done before this)
 
-    gene/cell score is the normalized average gene rank over all iterations
-    Non-normalized score is expected to be (num_genes+1)/2
+    2. For each gene, iteratively select X pairs of points and calculate the average distance between them
+        Remember this observed average distance for each gene
+
+    3. For P permutations, swap all gene labels
+        Repeat step 2 and remember permuted average distances for each gene-count
+        Calculate the quantile of the observed average distance against the background of average distances for the corresponding gene counts
+
+    4. Assign a score of 1 if the observed average distance is less than all permutations
+        score of -1 if the observed average distance is larger than all permutations, and a score of 0.5 if it is halfway between
+
+    5. Calculate the empirical variance of scores by converting all the null mean dists into scores
+
     """
-    spot_gene_coords = [
-        (g,(x,y)) for z in cell.zslices 
-        for g,(x,y) in zip(cell.spot_genes[z],cell.spot_coords[z])
-    ]
 
-    all_ranks_df = pd.DataFrame()
+    #Taken from https://stackoverflow.com/questions/22229796/choose-at-random-from-combinations
+    def random_combination(iterable, r):
+        "Random selection from itertools.combinations(iterable, r)"
+        pool = tuple(iterable)
+        n = len(pool)
+        indices = sorted(random.sample(range(n), r))
+        return tuple(pool[i] for i in indices)
 
-    for i in range(num_iterations):
-        #shuffle the spot order
-        random.shuffle(spot_gene_coords)
 
-        #choose two spots from each gene to be representatives (NOTE can do this more efficiently!)
-        g_reps = {g:[] for g in cell.genes}
-        for gene,xy in spot_gene_coords:
-            if len(g_reps[gene]) < 2:
-                g_reps[gene].append(xy)
+    def random_mean_pairs_dist(spots):
+        """
+        Helper function to choose 'num_pairs' pairs of gene spots and calculate the mean distance for each gene
+        Input is an array of spots that it will choose from
+        Returns a pd.Dataframe
+        """
+        d = 0
+        for _ in range(num_pairs):
+            (x1,y1),(x2,y2) = random_combination(spots,2)
+            d += math.sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2))
 
-        dists = []
-        for gene in g_reps:
-            x1,y1 = g_reps[gene][0]
-            x2,y2 = g_reps[gene][1]
-            dists.append((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2))
-            
-        gene_ranks = np.array(dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
+        return d/num_pairs
 
-        #dists and ranks will always be in the order of the cell.genes
-        gene_ranks_df = pd.DataFrame({'gene':cell.genes,'rank':gene_ranks,'iteration':i})
-    
-        all_ranks_df = pd.concat((all_ranks_df, gene_ranks_df),ignore_index=True)
 
-    all_ranks_df['spot_count'] = all_ranks_df['gene'].map(cell.gene_counts)
+    all_genes = np.array([g for z in cell.zslices for g in cell.spot_genes[z]])
+    all_spots = np.array([xy for z in cell.zslices for xy in cell.spot_coords[z]])
 
-    return all_ranks_df
+    # Score each gene against the null of the same number of spots
+    scores = {
+        'gene':[],
+        'spot_count':[],
+        'score':[],
+        'var':[],
+    }
+
+    for gene,count in cell.gene_counts.items():
+
+        # Calculate the obs mean dist
+        gene_spots = all_spots[all_genes == gene]
+        obs_dist = random_mean_pairs_dist(gene_spots)
+
+        # Null distribution by gene-label swapping
+        null_dists = []
+        for i in range(num_iterations):
+            spot_inds = np.random.choice(cell.n,count,replace=False)
+            null = random_mean_pairs_dist(all_spots[spot_inds])
+            null_dists.append(null)
+
+        null_dists = np.array(null_dists)
+
+        obs = sum(null_dists < obs_dist)
+        exp = len(null_dists)/2
+        score = (exp-obs)/exp
+        null_var = np.var([(exp-d)/exp for d in null_dists])
+
+        scores['gene'].append(gene)
+        scores['spot_count'].append(count)
+        scores['score'].append(score)
+        scores['var'].append(null_var)
+
+    return pd.DataFrame(scores)
+
 
 
 def central(cell):
