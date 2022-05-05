@@ -3,6 +3,7 @@ import operator as op
 import numpy as np
 import collections
 import functools
+import random
 import scipy
 import math
 
@@ -243,4 +244,29 @@ def _iter_vars(cells, processes=2):
         f = functools.partial(_cell_var, var_mem = var_mem)
         for cell in p.imap_unordered(f, cells):
             yield cell
+
+#Taken from https://stackoverflow.com/questions/22229796/choose-at-random-from-combinations
+def random_combination(iterable, r):
+    """
+    Random selection from itertools.combinations(iterable, r)
+    """
+    pool = tuple(iterable)
+    n = len(pool)
+    indices = sorted(random.sample(range(n), r))
+    return tuple(pool[i] for i in indices)
+
+
+def random_mean_pairs_dist(spots, num_pairs):
+    """
+    Helper function to choose 'num_pairs' pairs of gene spots and calculate the mean distance for each gene
+    Input is an array of spots that it will choose from
+    Returns a pd.Dataframe
+    """
+    d = 0
+    for _ in range(num_pairs):
+        (x1,y1),(x2,y2) = random_combination(spots,2)
+        d += math.sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2))
+
+    return d/num_pairs
+
 

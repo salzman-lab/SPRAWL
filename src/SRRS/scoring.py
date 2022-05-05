@@ -21,12 +21,12 @@ available_metrics = {
     'central':metrics.central,
 }
 
-def iter_scores(cells, metric, processes=2):
+def iter_scores(cells, metric, **kwargs):
     """
     Apply the chosen scoring metric to each cell
     utilizes multiprocessing
 
-    yields an iterator of dataframes, one for each cell, each with score info
+    returns a dataframe with score info for
          'metric' peripheral/polar etc
          'cell_id' the cell id. will be the same for every row
          'annotation' The cell-type annotation information. same for all rows
@@ -38,7 +38,7 @@ def iter_scores(cells, metric, processes=2):
          'variance' theoretical variance under the null
     """
     metric_f = available_metrics[metric]
-    score_df = metric_f(cells, processes=processes)
+    score_df = metric_f(cells, **kwargs)
     return score_df
 
 

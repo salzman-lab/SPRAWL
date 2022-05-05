@@ -122,16 +122,15 @@ def test_gene_celltype_sim_null(dataset,metric,seed,request):
 
 def test_single_cell_sim_null(m1s4):
     cell = next(m1s4.iter_cells())
-    result = simulate.gene_cell_sim_null_peripheral([cell], within_z=True, n_its=10, alpha=0.05)
+    result = simulate.gene_cell_sim_null([cell], metric='peripheral', within_z=True, n_its=10, alpha=0.05)
 
-    assert result['cell_id'].nunique() == 1
-    assert result['cell_id'].unique()[0] == cell.cell_id
+    assert result['cell_id'].unique() == [cell.cell_id]
 
 
 @pytest.mark.slow
 def test_sim_null(m1s4):
-    cells = m1s4.iter_cells()
-    result = simulate.gene_cell_sim_null_peripheral(cells, within_z=True, n_its=10, alpha=0.05)
+    cells = m1s4.cells()
+    result = simulate.gene_cell_sim_null(cells, metric='peripheral', within_z=False, n_its=10, alpha=0.05)
 
     assert set(result['cell_id'].values) == set(m1s4.cell_ids)
 
