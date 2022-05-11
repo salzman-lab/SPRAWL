@@ -10,18 +10,21 @@ on:
 
 jobs:
 
-  test_py37:
+  test:
 
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.6', '3.7', '3.8', '3.9']
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
 
-      - name: Setup Python
+      - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
-          python-version: "3.7"
+          python-version: ${{ matrix.python-version }}
 
       - name: Install SRRS
         run: pip install -e .
