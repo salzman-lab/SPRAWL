@@ -2,7 +2,7 @@ from . import metrics
 from . import utils
 
 from statsmodels.stats import multitest
-import scipy as scp
+from scipy import stats as scpstats
 import pandas as pd
 import numpy as np
 
@@ -21,12 +21,12 @@ available_metrics = {
     'central':metrics.central,
 }
 
-def iter_scores(cells, metric):
+def iter_scores(cells, metric, **kwargs):
     """
     Apply the chosen scoring metric to each cell
     utilizes multiprocessing
 
-    yields an iterator of dataframes, one for each cell, each with score info
+    returns a dataframe with score info for
          'metric' peripheral/polar etc
          'cell_id' the cell id. will be the same for every row
          'annotation' The cell-type annotation information. same for all rows
@@ -37,27 +37,9 @@ def iter_scores(cells, metric):
          'score' value ranging from -1 to 1
          'variance' theoretical variance under the null
     """
-    logging.debug('Scoring with {} cpu cores'.format(mp.cpu_count()))
-
-    cells = _iter_vars(cells)
-    cells = _iter_scores(cells,metric)
-
-    for cell in cells:
-        genes = cell.gene_med_ranks.keys()
-        med_ranks = cell.gene_med_ranks.values()
-
-        df = pd.DataFrame({
-            'metric':metric,
-            'cell_id':cell.cell_id,
-            'annotation':cell.annotation,
-            'num_spots':cell.n,
-            'gene':genes,
-            'num_gene_spots':[cell.gene_counts[g] for g in genes],
-            'median_rank':med_ranks,
-            'score':[utils.score(r,cell.n) for r in med_ranks],
-            'variance':[cell.gene_vars[g] for g in genes],
-        })
-        yield df
+    metric_f = available_metrics[metric]
+    score_df = metric_f(cells, **kwargs)
+    return score_df
 
 
 def gene_celltype_scoring(srrs_df, min_cells_per_gene_ont=1, extra_cols={}):
@@ -100,7 +82,7 @@ def gene_celltype_scoring(srrs_df, min_cells_per_gene_ont=1, extra_cols={}):
     srrs_df = srrs_df.reset_index()
 
     #calculate two-sided p-value
-    srrs_df['one_sided_p'] = scp.stats.norm.cdf(srrs_df['z'])
+    srrs_df['one_sided_p'] = scpstats.norm.cdf(srrs_df['z'])
     srrs_df['two_sided_p'] = 2*np.minimum(srrs_df['one_sided_p'], 1-srrs_df['one_sided_p'])
 
     #multiple testing correction
@@ -149,84 +131,6 @@ def gene_celltype_scoring(srrs_df, min_cells_per_gene_ont=1, extra_cols={}):
 
     return agg_df
 
-
-def _sequential_iter_scores(cells, metric):
-    """
-    Apply the chosen scoring metric to each cell
-    does NOT use multiprocessing
-
-    yields an iterator of dataframes with score info
-    """
-    if metric not in available_metrics:
-        sys.stderr.write('Metric {} not found in possible metrics {}\n'.format(metric, available_metrics.keys()))
-        sys.exit(1)
-
-    for cell in cells:
-        cell = _cell_var(cell)
-        cell = available_metrics[metric](cell)
-
-        df = pd.DataFrame({
-            'metric':metric,
-            'cell_id':cell.cell_id,
-            'annotation':cell.annotation,
-            'num_spots':cell.n,
-            'gene':cell.genes,
-            'num_gene_spots':[cell.gene_counts[g] for g in cell.genes],
-            'median_rank':[cell.gene_med_ranks[g] for g in cell.genes],
-            'score':[utils.score(cell.gene_med_ranks[g],cell.n) for g in cell.genes],
-            'variance':[cell.gene_vars[g] for g in cell.genes],
-        })
-        yield df
-
-
-def _cell_var(cell, var_mem={}):
-    """
-    Helper function to calculate theoretical gene variance
-    utilizes manager.dict() shared memory
-    adds gene_vars as a member of the cell object
-    """
-    #If the gene_vars are already calculated, just return the cell
-    if cell.gene_vars:
-        return cell
-
-    n = cell.n
-    for g,m in cell.gene_counts.items():
-        if (m,n) not in var_mem:
-            var_mem[(m,n)] = utils.calc_var(m,n)
-        cell.gene_vars[g] = var_mem[(m,n)]
-
-    return cell
-
-
-def _iter_vars(cells, processes=2):
-    """
-    Helper function
-    Calculate the theoretical variance of each gene in each cell
-    utilizes multiprocessing
-    """
-    manager = mp.Manager()
-    var_mem = manager.dict()
-
-    with mp.Pool(processes=processes) as p:
-        f = functools.partial(_cell_var, var_mem = var_mem)
-        for result in p.imap_unordered(f, cells):
-            yield result
-
-
-def _iter_scores(cells, metric_name, processes=2):
-    """
-    Helper function
-    Apply the chosen scoring metric to each cell
-    utilizes multiprocessing
-    """
-
-    #get the metric function or raise KeyError
-    metric_f = available_metrics[metric_name]
-
-    #multiplex the scoring
-    with mp.Pool(processes=processes) as p:
-        for result in p.imap_unordered(metric_f, cells):
-            yield result
 
 
 def _calc_p_twosided_helper(m_n_meds):

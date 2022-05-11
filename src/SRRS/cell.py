@@ -61,9 +61,9 @@ class Cell:
         return repr_str
 
 
-    def filter_low_count_genes(self, min_gene_spots=2):
+    def filter_genes_by_count(self, min_gene_spots=1, max_gene_spots=None):
         """
-        Removes spots from genes which have fewer than the threshold number of counts in place
+        Removes genes which have gene spots outside the threshold numbers
         Returns self for use in chaining methods
 
         Updates n and erases gene_vars since they will need to be recalculated
@@ -74,7 +74,9 @@ class Cell:
         self.spot_ranks = {}
         self.spot_values = {}
 
-        del_genes = {g for g,c in self.gene_counts.items() if c < min_gene_spots}
+        max_gene_spots = max(self.gene_counts.values()) if not max_gene_spots else max_gene_spots
+
+        del_genes = {g for g,c in self.gene_counts.items() if not(min_gene_spots <= c <= max_gene_spots)}
         for g in del_genes:
             del self.gene_counts[g]
 
@@ -94,8 +96,9 @@ class Cell:
 
             if len(new_z_genes) > 0:
                 new_zs.append(z)
-                self.spot_genes[z] = new_z_genes
-                self.spot_coords[z] = new_z_coords
+                self.spot_ranks[z] = []
+                self.spot_genes[z] = np.array(new_z_genes)
+                self.spot_coords[z] = np.array(new_z_coords)
             else:
                 #if we've deleted all spots in a z-slice, remove it
                 del self.spot_genes[z]

@@ -1,7 +1,9 @@
+import multiprocessing as mp
 import operator as op
 import numpy as np
 import collections
 import functools
+import random
 import scipy
 import math
 
@@ -209,5 +211,62 @@ def calc_var(m,n,approx_evens=False):
 
     else:
         return _calc_var_helper(m,n)
+
+
+def _cell_var(cell, var_mem={}):
+    """
+    Helper function to calculate theoretical gene variance
+    utilizes manager.dict() shared memory
+    adds gene_vars as a member of the cell object
+    """
+    #If the gene_vars are already calculated, just return the cell
+    if cell.gene_vars:
+        return cell
+
+    n = cell.n
+    for g,m in cell.gene_counts.items():
+        if (m,n) not in var_mem:
+            var_mem[(m,n)] = calc_var(m,n)
+        cell.gene_vars[g] = var_mem[(m,n)]
+
+    return cell
+
+
+def _iter_vars(cells, processes=2):
+    """
+    Calculate the theoretical variance of each gene in each cell
+    utilizes multiprocessing
+    """
+    manager = mp.Manager()
+    var_mem = manager.dict()
+
+    with mp.Pool(processes=processes) as p:
+        f = functools.partial(_cell_var, var_mem = var_mem)
+        for cell in p.imap_unordered(f, cells):
+            yield cell
+
+#Taken from https://stackoverflow.com/questions/22229796/choose-at-random-from-combinations
+def random_combination(iterable, r):
+    """
+    Random selection from itertools.combinations(iterable, r)
+    """
+    pool = tuple(iterable)
+    n = len(pool)
+    indices = sorted(random.sample(range(n), r))
+    return tuple(pool[i] for i in indices)
+
+
+def random_mean_pairs_dist(spots, num_pairs):
+    """
+    Helper function to choose 'num_pairs' pairs of gene spots and calculate the mean distance for each gene
+    Input is an array of spots that it will choose from
+    Returns a pd.Dataframe
+    """
+    d = 0
+    for _ in range(num_pairs):
+        (x1,y1),(x2,y2) = random_combination(spots,2)
+        d += math.sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2))
+
+    return d/num_pairs
 
 

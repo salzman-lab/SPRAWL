@@ -210,7 +210,7 @@ def plot_cell_zslices(cell, gene_colors={}, color_by_rank=False, default_spot_co
 
         #Determine which indices are colored/uncolored
         colors = np.array(colors)
-        uncolored_inds = colors == default_spot_color
+        uncolored_inds = np.array([c == default_spot_color for c in colors])
         colored_inds = ~uncolored_inds
 
         #Plot uncolored spots smaller

@@ -44,88 +44,41 @@ def gene_celltype_sim_null(cells, metric, within_z=True, n_its=1000):
 
 
 
-def gene_cell_sim_null_peripheral(cells, within_z=True, n_its=1000, alpha=0.05):
+def gene_cell_sim_null(cells, metric, within_z=True, n_its=1000, alpha=0.05, processes=2):
     """
     Perform a null simulation on cells by randomly changing gene labels
 
-    For each gene/cell pair, calculate how many have more extreme scores than
+    For each gene/cell pair, calculate how many permutations have more extreme scores than
     expected by chance
 
-    Steps
-    1. Permute gene labels
-    2. Calculate SRRS scores using metric
-    3. Count how many genes have significant peripheral distributions
-
     Return pandas dataframe with the following columns
-    * metric
     * cell_id
-    * annotation
-    * num_spots
     * gene
-    * num_gene_spots
-    * variance
-    * num_its
-    * alpha
-    * num_sig_its
-
-    Calculate theoretical variance just once
-    Calculate spot ranks just once, then permute spots
+    * perms_lt_score
+    * perms_gt_score
+    * sig
     """
-    meds_per_cell_per_gene = {}
-    cells = list(scoring._iter_vars(cells)) #avoid consuming generator
 
-    #make all the permutations and store the results
-    m_n_meds = collections.defaultdict(set)
-    for cell in cells:
-        meds_per_cell_per_gene[cell.cell_id] = collections.defaultdict(list)
-        n = cell.n
-        cell = metrics._peripheral_dist_and_rank(cell)
-        for _ in range(n_its):
+    obs_score_df = scoring.iter_scores(cells, metric=metric, processes=processes)
+    obs_scores = obs_score_df.set_index(['cell_id','gene'])['score']
+    counts_lt = pd.Series(data=0, index=obs_scores.index, name='perms_lt_score')
+
+    #for each iteration, permute gene labels and count how many permutations have lower scores than obs
+    for _ in range(n_its):
+        for cell in cells:
             null_permute_gene_labels(cell, within_z)
-            genes = np.array([g for z in cell.zslices for g in cell.spot_genes[z]])
 
-            for g,m in cell.gene_counts.items():
-                med = cell.gene_med_ranks[g]
-                meds_per_cell_per_gene[cell.cell_id][g].append(med)
-                m_n_meds[(m,n)].add(med)
-
-    #multiprocess the p_twosided calcs which are slow
-    p_cache = scoring._calc_p_twosided(m_n_meds)
-
-
-    #consolidate data
-    data = {
-        'metric':'peripheral',
-        'cell_id':[],
-        'annotation':[],
-        'num_spots':[],
-        'gene':[],
-        'num_gene_spots':[],
-        'theory_variance':[],
-        'emp_variance':[],
-        'num_its':[],
-        'alpha':[],
-        'num_sig_its':[],
-    }
-
-    for cell in cells:
-        for g,m in cell.gene_counts.items():
-            obs_meds = meds_per_cell_per_gene[cell.cell_id][g]
-
-            num_sig = sum(p_cache[(m,cell.n,med)] < alpha for med in obs_meds)
-
-            data['cell_id'].append(cell.cell_id)
-            data['annotation'].append(cell.annotation)
-            data['num_spots'].append(cell.n)
-            data['gene'].append(g)
-            data['num_gene_spots'].append(m)
-            data['theory_variance'].append(cell.gene_vars[g])
-            data['emp_variance'].append(np.var(obs_meds))
-            data['num_its'].append(n_its)
-            data['alpha'].append(alpha)
-            data['num_sig_its'].append(num_sig)
-
-    return pd.DataFrame(data)
+        perm_score_df = scoring.iter_scores(cells, metric=metric, processes=processes)
+        perm_scores = perm_score_df.set_index(['cell_id','gene'])['score']
+        counts_lt += perm_scores < obs_scores
+       
+    #calculate two-sided probabilities
+    sig_cutoff = 0.5*n_its*alpha
+    df = counts_lt.reset_index()
+    df['perms_gt_score'] = n_its-df['perms_lt_score']
+    df['sig'] = df['perms_lt_score'].le(sig_cutoff) | df['perms_gt_score'].le(sig_cutoff)
+ 
+    return df
 
 
 def null_permute_gene_labels(cell, within_z=True, update_ranks=False):
@@ -151,11 +104,6 @@ def null_permute_gene_labels(cell, within_z=True, update_ranks=False):
             slice_spots = len(cell.spot_genes[z])
             cell.spot_genes[z] = all_genes[i:i+slice_spots]
             i += slice_spots
-
-    #Update the median ranks after permuting the gene labels
-    #(only makes sense to do for periph and central)
-    if update_ranks:
-        metrics._update_med_ranks(cell)
 
     return cell
 

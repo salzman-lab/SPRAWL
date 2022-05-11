@@ -94,7 +94,7 @@ def test_low_count_genes(dataset, request):
     orig_cell_count = len(cells)
     min_gene_counts = [min(c.gene_counts.values()) for c in cells]
 
-    gene_filt_cells = [c.filter_low_count_genes(min_gene_spots) for c in cells]
+    gene_filt_cells = [c.filter_genes_by_count(min_gene_spots=min_gene_spots) for c in cells]
     filt_cell_count = len(gene_filt_cells)
     filt_min_gene_counts = [min(c.gene_counts.values()) for c in gene_filt_cells]
 

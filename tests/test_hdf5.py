@@ -1,7 +1,7 @@
 import pytest
 
 import SRRS
-from SRRS import scoring
+from SRRS import utils
 
 def test_cell_counts(m1s4, m2s4):
     assert m1s4.num_cells == 20
@@ -37,7 +37,7 @@ def test_save_gene_vars(dataset, request):
     assert num_gene_var_entries == 0
 
     #calculate gene vars (slow)
-    cells = list(scoring._iter_vars(cells))
+    cells = list(utils._iter_vars(cells))
     pre_cache_vars = {cell.cell_id:cell.gene_vars for cell in cells}
     num_gene_var_entries = sum(len(cell.gene_vars) for cell in cells)
     assert num_gene_var_entries > 0

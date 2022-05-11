@@ -1,155 +1,285 @@
 import shapely.geometry
-from scipy import stats
 
 import pandas as pd
 import numpy as np
 import collections
-import h5py
+import itertools
+import random
+import math
+import sys
 import os
 
-import operator as op
-from functools import reduce
-import collections
-import logging
-import math
-import time
-
 from . import utils
-
-def _update_med_ranks(cell):
-    #mark this cell as ranked to avoid duplicate work
-    cell.ranked = True
-
-    #Pull out the gene ranks
-    gene_ranks = collections.defaultdict(list)
-    for z in cell.zslices:
-        for gene,rank in zip(cell.spot_genes[z],cell.spot_ranks[z]):
-            gene_ranks[gene].append(rank)
-
-    #Iterate through unique genes to assign per-gene scores
-    for gene,ranks in gene_ranks.items():
-        cell.gene_med_ranks[gene] = np.median(ranks)
-
-    return cell
-
+from . import simulate
 
 ########################
 #   Metrics guidelines #
 ########################
-# Each metric function needs to take in a Cell object (from cell.py)
-# and output the same Cell with gene_med_ranks dictionary filled in for each gene
+# Each metric function needs to take in a list of Cell object (from cell.py)
+# and output the a table of Cell ids with gene_scores and gene_vars
+
 # The metric function calculates the per-gene score for all genes in the cell
 #   e.g. the periphery ranking, this will be based on the minimum distance of each spot to the periph
 #   e.g. the radial ranking this will be based on the min angle dist of each spot to the gene radial center
 
-def _test(cell):
+def _test(cells, **kwargs):
     """
     Test metric
-    Returns a cell with all med ranks equal to (cell.n+1)/2
-        score - 0
+    Returns a table with all scores of 0 and variances of 1
     """
-    for g in cell.genes:
-        cell.gene_med_ranks[g] = (cell.n+1)/2
+    data = {
+        'metric':[],
+        'cell_id':[],
+        'annotation':[],
+        'num_spots':[],
+        'gene':[],
+        'num_gene_spots':[],
+        'score':[],
+        'variance':[],
+    }
 
-    return cell
+    for cell in cells:
+        for gene in cell.genes:
+            data['metric'].append('test')
+            data['cell_id'].append(cell.cell_id)
+            data['annotation'].append(cell.annotation)
+            data['num_spots'].append(cell.n)
+            data['gene'].append(gene)
+            data['num_gene_spots'].append(cell.gene_counts[gene])
+            data['score'].append(0)
+            data['variance'].append(1)
+
+    return pd.DataFrame(data)
 
 
-def peripheral(cell):
+def peripheral(cells, **kwargs):
     """
     Peripheral metric
     """
-    if cell.ranked:
-        return cell
+    #handle kwargs
+    processes = kwargs.get('processes',2)
 
-    cell = _peripheral_dist_and_rank(cell)
-    cell = _update_med_ranks(cell)
-    return cell
+    #calculate the theoretical gene/cell variances (multiprocessing)
+    cells = utils._iter_vars(cells, processes)
+
+    data = {
+        'metric':[],
+        'cell_id':[],
+        'annotation':[],
+        'num_spots':[],
+        'gene':[],
+        'num_gene_spots':[],
+        'score':[],
+        'variance':[],
+    }
+
+    #score the cells (NOTE! make this multiprocessing)
+    for cell in cells:
+        periph_dists = []
+        spot_genes = []
+
+        for zslice in cell.zslices:
+
+            #Calculate dists of each spot to periphery
+            z_boundary = cell.boundaries[zslice]
+            z_spot_coords = cell.spot_coords[zslice]
+            z_spot_genes = cell.spot_genes[zslice]
+
+            poly = shapely.geometry.Polygon(z_boundary)
+            for xy,gene in zip(z_spot_coords,z_spot_genes):
+                dist = poly.boundary.distance(shapely.geometry.Point(xy))
+                periph_dists.append(dist)
+                spot_genes.append(gene)
+
+        #Rank the spots
+        spot_genes = np.array(spot_genes)
+        spot_ranks = np.array(periph_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
+
+        #score the genes
+        exp_med = (cell.n+1)/2
+        for gene in cell.genes:
+            gene_ranks = spot_ranks[spot_genes == gene]
+            obs_med = np.median(gene_ranks)
+            score = (exp_med-obs_med)/(exp_med-1)
+
+            data['metric'].append('periph')
+            data['cell_id'].append(cell.cell_id)
+            data['annotation'].append(cell.annotation)
+            data['num_spots'].append(cell.n)
+            data['gene'].append(gene)
+            data['num_gene_spots'].append(cell.gene_counts[gene])
+            data['score'].append(score)
+            data['variance'].append(cell.gene_vars[gene])
+
+    return pd.DataFrame(data)
 
 
-def radial(cell):
+def radial(cells, **kwargs):
     """
     Radial metric
     """
-    if cell.ranked:
-        return cell
-
-    cell = _radial_dist_and_rank(cell)
-    cell = _update_med_ranks(cell)
-    return cell
+    #NOTE just returning the test metric for now
+    return _test(cells, **kwargs)
 
 
-def punctate(cell):
+def punctate(cells, **kwargs):
     """
     Punctate metric
+
+    Steps of this new method:
+    1. Remove genes with 1 spot from consideration
+
+    2. For each gene, iteratively select X pairs of points and calculate the average distance between them
+        Remember this observed average distance for each gene
+
+    3. For `num_iterations` permutations, swap all gene labels
+        Repeat step 2 and remember permuted average distances for each gene-count
+        Calculate the quantile of the observed average distance against the background of average distances for the corresponding gene counts
+
+    4. Assign a score of 1 if the observed average distance is less than all permutations
+        score of -1 if the observed average distance is larger than all permutations, and a score of 0.5 if it is halfway between
+
+    5. Calculate the empirical variance of scores by converting all the null mean dists into scores
+
     """
-    if cell.ranked:
-        return cell
 
-    cell = _punctate_dist_and_rank(cell)
-    cell = _update_med_ranks(cell)
-    return cell
+    #handle kwargs
+    processes = kwargs.get('processes', 2)
+    num_iterations = kwargs.get('num_iterations', 1000)
+    num_pairs = kwargs.get('num_pairs', 4)
+    
+    data = {
+        'metric':[],
+        'cell_id':[],
+        'annotation':[],
+        'num_spots':[],
+        'gene':[],
+        'num_gene_spots':[],
+        'score':[],
+        'variance':[],
+    }
+
+    #NOTE make this parallel
+    for cell_num,cell in enumerate(cells):
+        if cell_num%50 == 0:
+            sys.stdout.write('Punctate scoring cell {}\n'.format(cell_num))
+            sys.stdout.flush()
+
+        cell = cell.filter_genes_by_count(min_gene_spots=2)
+
+        all_genes = np.array([g for z in cell.zslices for g in cell.spot_genes[z]])
+        all_spots = np.array([xy for z in cell.zslices for xy in cell.spot_coords[z]])
+
+        pre_calc_nulls = {}
+
+        for gene,count in cell.gene_counts.items():
+
+            # Calculate the obs mean dist
+            gene_spots = all_spots[all_genes == gene]
+            obs_dist = utils.random_mean_pairs_dist(gene_spots, num_pairs)
+
+            # Null distribution by gene-label swapping
+            if count in pre_calc_nulls:
+                null_dists = pre_calc_nulls[count]
+
+            else:
+                null_dists = []
+                for i in range(num_iterations):
+                    spot_inds = np.random.choice(cell.n,count,replace=False)
+                    null = utils.random_mean_pairs_dist(all_spots[spot_inds], num_pairs)
+                    null_dists.append(null)
+
+                null_dists = np.array(null_dists)
+                pre_calc_nulls[count] = null_dists
+
+            obs = sum(null_dists < obs_dist)
+            exp = len(null_dists)/2
+            score = (exp-obs)/exp
+            null_var = np.var([(exp-d)/exp for d in null_dists])
+
+            data['metric'].append('puncta')
+            data['cell_id'].append(cell.cell_id)
+            data['annotation'].append(cell.annotation)
+            data['num_spots'].append(cell.n)
+            data['gene'].append(gene)
+            data['num_gene_spots'].append(cell.gene_counts[gene])
+            data['score'].append(score)
+            data['variance'].append(null_var)
 
 
-def central(cell):
+    return pd.DataFrame(data)
+
+
+
+def central(cells, **kwargs):
     """
     Central metric
 
     Not exactly the opposite of the peripheral metric
     Ranks distance from cell centroid
     """
-    if cell.ranked:
-        return cell
+    processes = kwargs.get('processes', 2)
 
-    cell = _central_dist_and_rank(cell)
-    cell = _update_med_ranks(cell)
-    return cell
+    #calculate the theoretical gene/cell variances (multiprocessing)
+    cells = utils._iter_vars(cells, processes)
+
+    data = {
+        'metric':[],
+        'cell_id':[],
+        'annotation':[],
+        'num_spots':[],
+        'gene':[],
+        'num_gene_spots':[],
+        'score':[],
+        'variance':[],
+    }
+
+    for cell in cells:
+        #calculate distance of spot coords to cell centroid
+        spot_genes = []
+        spot_dists = []
+        for zslice in cell.zslices:
+            z_spot_coords = cell.spot_coords[zslice]
+            z_spot_genes = cell.spot_genes[zslice]
+
+            #Euclidean distance to slice centroid
+            slice_centroid = np.mean(cell.boundaries[zslice], axis=0)
+            dists = np.sum((z_spot_coords-slice_centroid)**2, axis=1)
+
+            spot_genes.extend(z_spot_genes)
+            spot_dists.extend(dists)
+
+        #Rank the spots
+        spot_genes = np.array(spot_genes)
+        spot_ranks = np.array(spot_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
+
+        #score the genes
+        exp_med = (cell.n+1)/2
+        for gene in cell.genes:
+            gene_ranks = spot_ranks[spot_genes == gene]
+            obs_med = np.median(gene_ranks)
+            score = (exp_med-obs_med)/(exp_med-1)
+
+            data['metric'].append('periph')
+            data['cell_id'].append(cell.cell_id)
+            data['annotation'].append(cell.annotation)
+            data['num_spots'].append(cell.n)
+            data['gene'].append(gene)
+            data['num_gene_spots'].append(cell.gene_counts[gene])
+            data['score'].append(score)
+            data['variance'].append(cell.gene_vars[gene])
+
+    return pd.DataFrame(data)
 
 
-def multi_spot_proximity(cell):
-    """
-    Multi-spot proximity metric
 
-    Creates an x,y grid of points within a cell
-    Scores each gene's proximity to each spot similarly to the central metric
-    """
-    pass
 
 
 def _peripheral_dist_and_rank(cell):
     """
     Helper function to calculate peripheral ranks
     """
-    min_periph_dists = []
-    min_spot_genes = []
-
-    for zslice in cell.zslices:
-
-        #Calculate dists of each spot to periphery
-        boundary = cell.boundaries[zslice]
-        spot_coords = cell.spot_coords[zslice]
-        spot_genes = cell.spot_genes[zslice]
-
-        poly = shapely.geometry.Polygon(boundary)
-        for p,gene in zip(spot_coords,spot_genes):
-            dist = poly.boundary.distance(shapely.geometry.Point(p))
-            min_periph_dists.append(dist)
-            min_spot_genes.append(gene)
-
-    #Rank the spots
-    min_spot_genes = np.array(min_spot_genes)
-    spot_ranks = np.array(min_periph_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
-
-    #save the ranks back to the cell object by z-slice
-    start_i = 0
-    for zslice in cell.zslices:
-        end_i = cell.n_per_z[zslice]+start_i
-        cell.spot_ranks[zslice] = spot_ranks[start_i:end_i]
-        cell.spot_values[zslice] = min_periph_dists[start_i:end_i]
-        start_i = end_i
-
-    return cell
-
-
+    pass
 
 def _radial_dist_and_rank(cell):
     """
@@ -204,84 +334,9 @@ def _radial_dist_and_rank(cell):
     return cell
 
 
-def _punctate_dist_and_rank(cell):
-    """
-    Helper function to calculate punctate ranks
-    """
-    #gather the spot coords and genes
-    spot_genes = []
-    spot_coords = []
-    for zslice in cell.zslices:
-        z_spot_coords = cell.spot_coords[zslice]
-        z_spot_genes = cell.spot_genes[zslice]
-
-        spot_coords.extend(z_spot_coords)
-        spot_genes.extend(z_spot_genes)
-
-    spot_genes = np.array(spot_genes)
-    spot_coords = np.array(spot_coords)
-
-    #calculate gene centroids
-    gene_centroids = {}
-    for gene in cell.genes:
-        gene_inds = spot_genes == gene
-        gene_spots = spot_coords[gene_inds]
-        gene_centroids[gene] = np.mean(gene_spots,axis=0)
-
-    #calculate per-spot distance to its gene centroid
-    spot_dists = []
-    for gene,vec in zip(spot_genes,spot_coords):
-        cx,cy = gene_centroids[gene]
-        x,y = vec
-        dist = (cx-x)*(cx-x)+(cy-y)*(cy-y)
-        spot_dists.append(dist)
-
-    #Rank spots by angle residuals
-    spot_ranks = np.array(spot_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
-
-    #save the ranks back to the cell object by z-slice
-    start_i = 0
-    for zslice in cell.zslices:
-        end_i = cell.n_per_z[zslice]+start_i
-        cell.spot_ranks[zslice] = spot_ranks[start_i:end_i]
-        cell.spot_values[zslice] = spot_dists[start_i:end_i]
-        start_i = end_i
-
-    return cell
-
-
 def _central_dist_and_rank(cell):
     """
     Helper function to calculate central ranks
     """
-
-    #calculate distance of spot coords to cell centroid
-    spot_genes = []
-    spot_dists = []
-    for zslice in cell.zslices:
-        z_spot_coords = cell.spot_coords[zslice]
-        z_spot_genes = cell.spot_genes[zslice]
-
-        #Euclidean distance to slice centroid
-        slice_centroid = np.mean(cell.boundaries[zslice], axis=0)
-        dists = np.sum((z_spot_coords-slice_centroid)**2, axis=1)
-
-        spot_genes.extend(z_spot_genes)
-        spot_dists.extend(dists)
-
-    #Rank the spots
-    spot_genes = np.array(spot_genes)
-    spot_ranks = np.array(spot_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
-
-    #save the ranks back to the cell object by z-slice
-    start_i = 0
-    for zslice in cell.zslices:
-        end_i = cell.n_per_z[zslice]+start_i
-        cell.spot_ranks[zslice] = spot_ranks[start_i:end_i]
-        cell.spot_values[zslice] = spot_dists[start_i:end_i]
-        start_i = end_i
-
-    return cell
-
-
+    pass
 
