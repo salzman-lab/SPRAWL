@@ -6,6 +6,7 @@ import collections
 import itertools
 import random
 import math
+import sys
 import os
 
 from . import utils
@@ -158,8 +159,12 @@ def punctate(cells, **kwargs):
         'variance':[],
     }
 
+    #NOTE make this parallel
+    for cell_num,cell in enumerate(cells):
+        if cell_num%50 == 0:
+            sys.stdout.write('Punctate scoring cell {}\n'.format(cell_num))
+            sys.stdout.flush()
 
-    for cell in cells:
         cell = cell.filter_genes_by_count(min_gene_spots=2)
 
         all_genes = np.array([g for z in cell.zslices for g in cell.spot_genes[z]])
