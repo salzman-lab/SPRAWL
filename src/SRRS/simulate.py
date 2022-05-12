@@ -60,8 +60,8 @@ def gene_cell_sim_null(cells, metric, within_z=True, n_its=1000, alpha=0.05, pro
     """
 
     obs_score_df = scoring.iter_scores(cells, metric=metric, processes=processes)
-    obs_scores = obs_score_df.set_index(['cell_id','gene'])['score']
-    counts_lt = pd.Series(data=0, index=obs_scores.index, name='perms_lt_score')
+    obs_scores = obs_score_df.set_index(['cell_id','gene'])['score'].sort_index()
+    counts_lt = pd.Series(data=0.0, index=obs_scores.index, name='perms_lt_score')
 
     #for each iteration, permute gene labels and count how many permutations have lower scores than obs
     for _ in range(n_its):
@@ -69,7 +69,8 @@ def gene_cell_sim_null(cells, metric, within_z=True, n_its=1000, alpha=0.05, pro
             null_permute_gene_labels(cell, within_z)
 
         perm_score_df = scoring.iter_scores(cells, metric=metric, processes=processes)
-        perm_scores = perm_score_df.set_index(['cell_id','gene'])['score']
+        perm_scores = perm_score_df.set_index(['cell_id','gene'])['score'].sort_index()
+
         counts_lt += perm_scores < obs_scores
        
     #calculate two-sided probabilities

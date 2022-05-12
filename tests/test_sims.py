@@ -127,7 +127,6 @@ def test_single_cell_sim_null(m1s4):
     assert result['cell_id'].unique() == [cell.cell_id]
 
 
-@pytest.mark.slow
 def test_sim_null(m1s4):
     cells = m1s4.cells()
     result = simulate.gene_cell_sim_null(cells, metric='peripheral', within_z=False, n_its=10, alpha=0.05)
