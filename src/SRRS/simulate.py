@@ -82,7 +82,7 @@ def gene_cell_sim_null(cells, metric, within_z=True, n_its=1000, alpha=0.05, pro
     return df
 
 
-def null_permute_gene_labels(cell, within_z=True, update_ranks=False):
+def null_permute_gene_labels(cell, within_z=True):
     """
     Take as input a Cell object
     permutes in place but also returns Cell object reference
