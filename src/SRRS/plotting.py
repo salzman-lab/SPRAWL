@@ -325,7 +325,7 @@ def plot_tissue_level(cells, color_by_score_gene=None, color_by_ontology=False, 
         ax.legend(handles=markers)
 
     elif color_by_score_gene:
-        cmap = cm.get_cmap('coolwarm').copy()
+        cmap = cm.get_cmap('coolwarm')
         cmap.set_bad(color='black')
         coll = PolyCollection(boundaries, array=cmap_vals, cmap=cmap, edgecolors='none')
         fig.colorbar(coll, ax=ax)
