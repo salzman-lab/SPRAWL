@@ -1,5 +1,8 @@
 import shapely.geometry
 
+import multiprocessing as mp
+import functools
+
 import pandas as pd
 import numpy as np
 import collections
@@ -16,7 +19,7 @@ from . import simulate
 #   Metrics guidelines #
 ########################
 # Each metric function needs to take in a list of Cell object (from cell.py)
-# and output the a table of Cell ids with gene_scores and gene_vars
+# and output a table of Cell ids with gene_scores and gene_vars
 
 # The metric function calculates the per-gene score for all genes in the cell
 #   e.g. the periphery ranking, this will be based on the minimum distance of each spot to the periph
@@ -114,12 +117,101 @@ def peripheral(cells, **kwargs):
     return pd.DataFrame(data)
 
 
+def _radial(cell, num_iterations, num_pairs):
+    """
+    Helper radial function gets called by radial() for multiprocessing of each cell
+    """
+    data = {
+        'metric':[],
+        'cell_id':[],
+        'annotation':[],
+        'num_spots':[],
+        'gene':[],
+        'num_gene_spots':[],
+        'score':[],
+        'variance':[],
+    }
+
+    cell_centroid = np.mean(np.vstack(list(cell.boundaries.values())),axis=0)
+
+    cell = cell.filter_genes_by_count(min_gene_spots=2)
+
+    all_genes = np.array([g for z in cell.zslices for g in cell.spot_genes[z]])
+    all_spots = np.array([xy for z in cell.zslices for xy in cell.spot_coords[z]])
+
+    pre_calc_nulls = {}
+
+    for gene,count in cell.gene_counts.items():
+
+        # Calculate the obs mean dist
+        gene_spots = all_spots[all_genes == gene]
+        obs_dist = utils.random_mean_pairs_angle(gene_spots, cell_centroid, num_pairs)
+
+        # Null distribution by gene-label swapping
+        if count in pre_calc_nulls:
+            null_dists = pre_calc_nulls[count]
+
+        else:
+            null_dists = []
+            for i in range(num_iterations):
+                spot_inds = np.random.choice(cell.n,count,replace=False)
+                null = utils.random_mean_pairs_angle(all_spots[spot_inds], cell_centroid, num_pairs)
+                null_dists.append(null)
+
+            null_dists = np.array(null_dists)
+            pre_calc_nulls[count] = null_dists
+
+        obs = sum(null_dists < obs_dist)
+        exp = len(null_dists)/2
+        score = (exp-obs)/exp
+        null_var = np.var([(exp-d)/exp for d in null_dists])
+
+        data['metric'].append('radial')
+        data['cell_id'].append(cell.cell_id)
+        data['annotation'].append(cell.annotation)
+        data['num_spots'].append(cell.n)
+        data['gene'].append(gene)
+        data['num_gene_spots'].append(cell.gene_counts[gene])
+        data['score'].append(score)
+        data['variance'].append(null_var)
+
+
+    return pd.DataFrame(data)
+
+
+
 def radial(cells, **kwargs):
     """
     Radial metric
+
+    Steps of this method:
+    1. Remove genes with 1 spot from consideration
+
+    2. For each gene, iteratively select X pairs of points and calculate the average angle between them
+       the angle being measured formed by (x1,y1) --> (cx,cy) --> (x2,y2) where (cx,cy) is the cell centroid
+
+    3. For `num_iterations` permutations, swap all gene labels
+       Repeat step 2 and remember permuted average angle for each gene-count
+       Calculate the quantile of the observed average distance against the background of average distances for the corresponding gene counts
+
+    4. Assign a score of 1 if the observed average distance is less than all permutations
+       score of -1 if the observed average distance is larger than all permutations, and a score of 0.5 if it is halfway between
+
+    5. Calculate the empirical variance of scores by converting all the null mean angles into scores
+
     """
-    #NOTE just returning the test metric for now
-    return _test(cells, **kwargs)
+    #handle kwargs
+    processes = kwargs.get('processes', 2)
+    num_iterations = kwargs.get('num_iterations', 1000)
+    num_pairs = kwargs.get('num_pairs', 4)
+
+    f = functools.partial(_radial, num_iterations=num_iterations, num_pairs=num_pairs)
+    
+    with mp.Pool(processes=processes) as p:
+        score_df = pd.concat(p.imap_unordered(f, cells), ignore_index=True)
+
+    return score_df
+
 
 
 def punctate(cells, **kwargs):
@@ -161,10 +253,6 @@ def punctate(cells, **kwargs):
 
     #NOTE make this parallel
     for cell_num,cell in enumerate(cells):
-        if cell_num%50 == 0:
-            sys.stdout.write('Punctate scoring cell {}\n'.format(cell_num))
-            sys.stdout.flush()
-
         cell = cell.filter_genes_by_count(min_gene_spots=2)
 
         all_genes = np.array([g for z in cell.zslices for g in cell.spot_genes[z]])
@@ -272,71 +360,4 @@ def central(cells, **kwargs):
     return pd.DataFrame(data)
 
 
-
-
-
-def _peripheral_dist_and_rank(cell):
-    """
-    Helper function to calculate peripheral ranks
-    """
-    pass
-
-def _radial_dist_and_rank(cell):
-    """
-    Helper function to calculate radial ranks
-    """
-
-    #calculate the cell (x,y) centroid over all z-slices
-    cell_centroid = np.mean(np.vstack(list(cell.boundaries.values())),axis=0)
-
-    #normalize spot coords to cell centroid
-    spot_genes = []
-    spot_coords = []
-    for zslice in cell.zslices:
-        z_spot_coords = cell.spot_coords[zslice]
-        z_spot_genes = cell.spot_genes[zslice]
-
-        centered_spots = z_spot_coords-cell_centroid
-
-        spot_coords.extend(centered_spots)
-        spot_genes.extend(z_spot_genes)
-
-    spot_genes = np.array(spot_genes)
-    spot_coords = np.array(spot_coords)
-
-    #calculate mean gene vecs
-    mean_gene_vecs = {}
-    for gene in cell.genes:
-        gene_inds = spot_genes == gene
-        gene_spots = spot_coords[gene_inds]
-        mean_vec = np.mean(gene_spots,axis=0)
-        mean_gene_vecs[gene] = mean_vec/np.linalg.norm(mean_vec)
-
-    #calculate angle residuals
-    angle_residuals = []
-    for gene,vec in zip(spot_genes,spot_coords):
-        norm_vec = vec/np.linalg.norm(vec)
-        angle = np.arccos(np.clip(np.dot(norm_vec, mean_gene_vecs[gene]), -1.0, 1.0)) #taken from: https://stackoverflow.com/questions/2827393
-        angle_residuals.append(angle)
-
-
-    #Rank spots by angle residuals
-    spot_ranks = np.array(angle_residuals).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
-
-    #save the ranks back to the cell object by z-slice
-    start_i = 0
-    for zslice in cell.zslices:
-        end_i = cell.n_per_z[zslice]+start_i
-        cell.spot_ranks[zslice] = spot_ranks[start_i:end_i]
-        cell.spot_values[zslice] = angle_residuals[start_i:end_i]
-        start_i = end_i
-
-    return cell
-
-
-def _central_dist_and_rank(cell):
-    """
-    Helper function to calculate central ranks
-    """
-    pass
 

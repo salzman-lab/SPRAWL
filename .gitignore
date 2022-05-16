@@ -31,7 +31,7 @@ nextflow*
 *.ipynb
 
 #notebooks in analysis can be included
-!analysis/*.ipynb
+!analysis/**/*.ipynb
 
 
 # Byte-compiled / optimized / DLL files
