@@ -13,7 +13,7 @@ import seaborn as sns
 
 import sys
 
-def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='grey', rainbow=False):
+def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='grey', rainbow=False, fig=None, ax=None):
     """
     3D plot of a cell
     optionally color spots by gene or rank
@@ -23,8 +23,9 @@ def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='
     #If gene colors given and coloring by rank, just color by rank
     gene_colors = {} if color_by_rank else gene_colors
 
-    fig = plt.figure(figsize=(6,6))
-    ax = plt.axes(projection='3d')
+    if not ax or not fig:
+        fig = plt.figure(figsize=(6,6))
+        ax = plt.axes(projection='3d')
 
     #plot boundaries and buildup all points
     xs = []

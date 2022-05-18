@@ -55,15 +55,10 @@ def _test(cells, **kwargs):
     return pd.DataFrame(data)
 
 
-def peripheral(cells, **kwargs):
+def _peripheral(cell, ret_spot_ranks=False):
     """
-    Peripheral metric
+    Helper peripheral function gets called by peripheral() for multiprocessing of each cell
     """
-    #handle kwargs
-    processes = kwargs.get('processes',2)
-
-    #calculate the theoretical gene/cell variances (multiprocessing)
-    cells = utils._iter_vars(cells, processes)
 
     data = {
         'metric':[],
@@ -76,45 +71,79 @@ def peripheral(cells, **kwargs):
         'variance':[],
     }
 
-    #score the cells (NOTE! make this multiprocessing)
-    for cell in cells:
-        periph_dists = []
-        spot_genes = []
+    #score the cell
+    periph_dists = []
+    spot_genes = []
 
-        for zslice in cell.zslices:
+    for zslice in cell.zslices:
 
-            #Calculate dists of each spot to periphery
-            z_boundary = cell.boundaries[zslice]
-            z_spot_coords = cell.spot_coords[zslice]
-            z_spot_genes = cell.spot_genes[zslice]
+        #Calculate dists of each spot to periphery
+        z_boundary = cell.boundaries[zslice]
+        z_spot_coords = cell.spot_coords[zslice]
+        z_spot_genes = cell.spot_genes[zslice]
 
-            poly = shapely.geometry.Polygon(z_boundary)
-            for xy,gene in zip(z_spot_coords,z_spot_genes):
-                dist = poly.boundary.distance(shapely.geometry.Point(xy))
-                periph_dists.append(dist)
-                spot_genes.append(gene)
+        poly = shapely.geometry.Polygon(z_boundary)
+        for xy,gene in zip(z_spot_coords,z_spot_genes):
+            dist = poly.boundary.distance(shapely.geometry.Point(xy))
+            periph_dists.append(dist)
+            spot_genes.append(gene)
 
-        #Rank the spots
-        spot_genes = np.array(spot_genes)
-        spot_ranks = np.array(periph_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
+    #Rank the spots
+    spot_genes = np.array(spot_genes)
+    spot_ranks = np.array(periph_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
 
-        #score the genes
-        exp_med = (cell.n+1)/2
-        for gene in cell.genes:
-            gene_ranks = spot_ranks[spot_genes == gene]
-            obs_med = np.median(gene_ranks)
-            score = (exp_med-obs_med)/(exp_med-1)
+    if ret_spot_ranks:
+        return spot_genes,spot_ranks
 
-            data['metric'].append('periph')
-            data['cell_id'].append(cell.cell_id)
-            data['annotation'].append(cell.annotation)
-            data['num_spots'].append(cell.n)
-            data['gene'].append(gene)
-            data['num_gene_spots'].append(cell.gene_counts[gene])
-            data['score'].append(score)
-            data['variance'].append(cell.gene_vars[gene])
+
+    #score the genes
+    exp_med = (cell.n+1)/2
+    for gene in cell.genes:
+        gene_ranks = spot_ranks[spot_genes == gene]
+        obs_med = np.median(gene_ranks)
+        score = (exp_med-obs_med)/(exp_med-1)
+
+        data['metric'].append('periph')
+        data['cell_id'].append(cell.cell_id)
+        data['annotation'].append(cell.annotation)
+        data['num_spots'].append(cell.n)
+        data['gene'].append(gene)
+        data['num_gene_spots'].append(cell.gene_counts[gene])
+        data['score'].append(score)
+        data['variance'].append(cell.gene_vars[gene])
 
     return pd.DataFrame(data)
+
+
+def peripheral(cells, **kwargs):
+    """
+    Peripheral metric
+
+    Steps of this method:
+    1. Calculate theoretical gene vars
+
+    2. Measure minimum distance of each spot to the cell-boundary in its z-slice
+
+    3. Rank all spots over all z-slices
+
+    4. Calculate the median gene rank and convert to a score
+
+    5. Return a score dataframe
+
+    """
+
+    #handle kwargs
+    processes = kwargs.get('processes', 2)
+
+    #calculate the theoretical gene/cell variances (multiprocessing)
+    cells = utils._iter_vars(cells, processes)
+
+    with mp.Pool(processes=processes) as p:
+        score_df = pd.concat(p.imap_unordered(_peripheral, cells), ignore_index=True)
+
+    return score_df
+
+
 
 
 def _radial(cell, num_iterations, num_pairs):

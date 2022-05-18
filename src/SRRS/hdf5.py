@@ -52,7 +52,7 @@ class HDF5:
         """
         List of all cell_ids
         """
-        return list(self._f['cells'].keys())
+        return [c.decode() for c in self._f['cell_ids']]
 
     @property
     @fhandle
@@ -85,12 +85,24 @@ class HDF5:
         """
         return len(self.genes)
 
+
     @fhandle
-    def get_cells_by_id(self,cell_ids):
+    def get_cells_by_id(self, cell_ids, ignore_missing=False):
         """
-        Return cell objects by cell_id
+        Return cell objects by cell_id in a list
+        Throws a KeyError if any of the cell_ids are not found unless ignore_missing=True
         """
-        cells = [cell.Cell(self._f['cells'][cell_id]) for cell_id in cell_ids]
+        if not ignore_missing:
+            cells = [cell.Cell(self._f['cells'][cell_id]) for cell_id in cell_ids]
+
+        else:
+            cells = []
+            for cell_id in cell_ids:
+                try:
+                    cells.append(cell.Cell(self._f['cells'][cell_id]))
+                except KeyError:
+                    continue
+
         return cells
 
 
