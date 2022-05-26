@@ -1,4 +1,3 @@
-// Inputs downloaded from https://download.brainimagelibrary.org/cf/1c/cf1c1a431ef8d021/processed_data/ July 2021
 
 scriptsDir = "${baseDir}/scripts"
 

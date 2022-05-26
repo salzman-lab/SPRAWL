@@ -1,5 +1,5 @@
 // Inputs downloaded from https://download.brainimagelibrary.org/cf/1c/cf1c1a431ef8d021/processed_data/ July 2021
-root_path = "/oak/stanford/groups/horence/rob/isoform_localizations/unprocessed_downloads/dl_scripts/revised_collection"
+root_path = "/scratch/groups/horence/rob/data/SRRS_spatial_datasets/BICCN_merfish"
 
 cell_labels = file("${root_path}/cell_labels.csv")
 scriptsDir = "${baseDir}/scripts"

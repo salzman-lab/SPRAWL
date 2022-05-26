@@ -1,5 +1,8 @@
 import click
 from . import scoring
+from . import utils
+
+import pandas as pd
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
@@ -35,6 +38,33 @@ def gene_cell_scoring(**kwargs):
     output_str = click.format_filename(kwargs['output'])
     click.echo('Will score {} using {} and output to {}'.format(input_str, kwargs['metric'], output_str))
 
+
+@srrs.command()
+@click.argument('bam', type=click.Path(exists=True))
+@click.argument('output', type=click.Path())
+@click.argument('mapping', type=click.Path())
+@click.option('--processes', type=int, required=False)
+def annotate(**kwargs):
+    """
+    Annotate a bam file with a custom tag using cell-type or other mapping
+    
+    Arguments:
+        * bam is the path to the sorted/index bam file 
+        * output is the path where the annotated bam will be created 
+        * mapping is a two-column CSV where the headers are the "from"-tag and the "dest"-tag 
+    """
+    mapping_df = pd.read_csv(kwargs['mapping'])
+    key_tag,val_tag = mapping_df.columns
+    mapping = dict(mapping_df.values)
+
+    utils.map_bam_tag(
+        kwargs['bam'],
+        kwargs['output'],
+        mapping, 
+        key_tag=key_tag, 
+        val_tag=val_tag, 
+        processes=kwargs.get('processes',1),
+    )
 
 
 if __name__ == '__main__':

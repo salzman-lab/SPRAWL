@@ -1,11 +1,16 @@
 import multiprocessing as mp
 import operator as op
+import pandas as pd
 import numpy as np
 import collections
 import functools
+import tempfile
 import random
 import scipy
+import pysam
 import math
+import os
+
 
 p_med_cache = {}
 ncr_mem = {}
@@ -299,4 +304,140 @@ def angle_between(v1, v2):
     v2_u = v2 / np.linalg.norm(v2)
     return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
 
+
+def _map_bam_tag_chr(chrom, bam_path, mapping, key_tag, val_tag, tmp_dir):
+    """
+    Helper function to map bam tags
+    creates a bam output file in a tmp_dir
+
+    returns the path to the tmp bam file
+    """
+    chr_out_path = os.path.join(tmp_dir.name, '{}.bam'.format(chrom))
+
+    in_bam = pysam.AlignmentFile(bam_path)
+    out_bam = pysam.AlignmentFile(chr_out_path, 'wb', template=in_bam)
+
+    for i,read in enumerate(in_bam.fetch(chrom)):
+
+        try:
+            k = read.get_tag(key_tag)
+        except KeyError:
+            continue
+
+        if k not in mapping:
+            continue
+
+        read.set_tag(val_tag, mapping[k])
+        out_bam.write(read)
+
+    out_bam.close()
+    in_bam.close()
+
+    return chr_out_path
+
+
+def map_bam_tag(bam_path, out_path, mapping, key_tag='CB', val_tag='XO', processes=1):
+    """
+    Create a new sorted and indexed bam file with an additional bam tag field
+    Potentially useful for adding celltype tag to a bam for downstream processing
+    Supports multiprocessing by operating on individual chromosomes and then merging
+
+    returns the out_path
+
+    Arguments:
+        bam_path [required]
+            path to a position-sorted and indexed bam
+
+        out_path [required]
+            path such as my_outs/out.bam of where to store output
+            a .bam.bai of the same prefix will also be created
+
+        mapping [required]
+            dictionary mapping keys from the key_tag to values in the val_tag
+            as a concrete example could map cell-barcode (CB) to cell-type (XO) custom tag
+
+        key_tag, val_tag
+            the key and val tag names to use to perform the mapping
+
+        processes
+            the number of processes to use to multiplex the operation
+    """
+    tmp_dir = tempfile.TemporaryDirectory()
+
+    #get the chroms for multiplexing
+    with pysam.AlignmentFile(bam_path) as bam:
+        chroms = bam.references
+
+    #perform the mapping
+    with mp.Pool(processes=processes) as p:
+        f = functools.partial(
+            _map_bam_tag_chr,
+            bam_path = bam_path,
+            mapping = mapping,
+            key_tag = key_tag,
+            val_tag = val_tag,
+            tmp_dir = tmp_dir,
+        )
+        chrom_bam_paths = p.map(f, chroms)
+
+    #merge the individual bam files and create index
+    merge_args = ['-@',str(processes),str(out_path)] + chrom_bam_paths
+    pysam.merge(*merge_args)
+
+    pysam.index(str(out_path))
+
+
+    #delete the tmpdir containing all the tmp bams
+    tmp_dir.cleanup()
+
+    return out_path
+
+
+def readzs_proxy_score(bam_path, locus, stratify_tag=None, **kwargs):
+    """
+    Flexible function to create a ReadZs score proxy directly from a bam
+    Can optionally stratify by a tag in the bam
+    """
+    min_ont_reads = kwargs.get('min_ont_reads',0)
+
+    #handling locus
+    try:
+        chrom,start,end = locus
+        start = int(start)
+        end = int(end)
+    except:
+        raise Exception('Must pass in a tuple of locus info such as locus=("chr1",1,100)')
+
+
+    #Counting reads per tag in this region
+    def get_tag(read):
+        try:
+            return read.get_tag(stratify_tag)
+        except KeyError:
+            return None
+
+    strat_func = get_tag if stratify_tag else (lambda read: 'All')
+
+    count_data = {
+        'strat':[],
+        'pos':[],
+    }
+
+    with pysam.AlignmentFile(bam_path) as bam:
+        for r in bam.fetch(chrom,start,end):
+            if r.pos < start or r.pos > end:
+                continue
+
+            strat = strat_func(r)
+            if strat:
+                count_data['strat'].append(strat)
+                count_data['pos'].append(r.pos)
+
+    count_df = pd.DataFrame(count_data)
+    count_df = count_df.groupby('strat').filter(lambda g: len(g) > min_ont_reads)
+
+    exp_med = (end+start)/2
+    span = end-start
+    ont_to_score = count_df.groupby('strat')['pos'].median().subtract(exp_med).div(span).to_dict()
+    return ont_to_score
 

@@ -28,4 +28,6 @@ def no_var_m2s4_hdf5():
 def radial_test_hdf5():
     return _load_hdf5('sim_radial_cell.hdf5')
 
+def get_data_path(name):
+    return pkg_resources.files(vignette_data).joinpath(name)
 

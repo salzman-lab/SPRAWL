@@ -13,7 +13,6 @@ import sys
 import os
 
 from . import utils
-from . import simulate
 
 ########################
 #   Metrics guidelines #
@@ -242,11 +241,70 @@ def radial(cells, **kwargs):
     return score_df
 
 
+def _punctate(cell, num_iterations, num_pairs):
+    """
+    Helper punctate function gets called by punctate() for multiprocessing of each cell
+    """
+    data = {
+        'metric':[],
+        'cell_id':[],
+        'annotation':[],
+        'num_spots':[],
+        'gene':[],
+        'num_gene_spots':[],
+        'score':[],
+        'variance':[],
+    }
+
+    cell = cell.filter_genes_by_count(min_gene_spots=2)
+
+    all_genes = np.array([g for z in cell.zslices for g in cell.spot_genes[z]])
+    all_spots = np.array([xy for z in cell.zslices for xy in cell.spot_coords[z]])
+
+    pre_calc_nulls = {}
+
+    for gene,count in cell.gene_counts.items():
+
+        # Calculate the obs mean dist
+        gene_spots = all_spots[all_genes == gene]
+        obs_dist = utils.random_mean_pairs_dist(gene_spots, num_pairs)
+
+        # Null distribution by gene-label swapping
+        if count in pre_calc_nulls:
+            null_dists = pre_calc_nulls[count]
+
+        else:
+            null_dists = []
+            for i in range(num_iterations):
+                spot_inds = np.random.choice(cell.n,count,replace=False)
+                null = utils.random_mean_pairs_dist(all_spots[spot_inds], num_pairs)
+                null_dists.append(null)
+
+            null_dists = np.array(null_dists)
+            pre_calc_nulls[count] = null_dists
+
+        obs = sum(null_dists < obs_dist)
+        exp = len(null_dists)/2
+        score = (exp-obs)/exp
+        null_var = np.var([(exp-d)/exp for d in null_dists])
+
+        data['metric'].append('puncta')
+        data['cell_id'].append(cell.cell_id)
+        data['annotation'].append(cell.annotation)
+        data['num_spots'].append(cell.n)
+        data['gene'].append(gene)
+        data['num_gene_spots'].append(cell.gene_counts[gene])
+        data['score'].append(score)
+        data['variance'].append(null_var)
+
+    return pd.DataFrame(data)
+
 
 def punctate(cells, **kwargs):
     """
     Punctate metric
 
+    Uses multiprocessing to separately work on each cell
     Steps of this new method:
     1. Remove genes with 1 spot from consideration
 
@@ -263,12 +321,23 @@ def punctate(cells, **kwargs):
     5. Calculate the empirical variance of scores by converting all the null mean dists into scores
 
     """
-
     #handle kwargs
     processes = kwargs.get('processes', 2)
     num_iterations = kwargs.get('num_iterations', 1000)
     num_pairs = kwargs.get('num_pairs', 4)
+
+    f = functools.partial(_punctate, num_iterations=num_iterations, num_pairs=num_pairs)
     
+    with mp.Pool(processes=processes) as p:
+        score_df = pd.concat(p.imap_unordered(f, cells), ignore_index=True)
+
+    return score_df
+
+
+def _central(cell):
+    """
+    Helper central function gets called by central() for multiprocessing of each cell
+    """
     data = {
         'metric':[],
         'cell_id':[],
@@ -280,49 +349,39 @@ def punctate(cells, **kwargs):
         'variance':[],
     }
 
-    #NOTE make this parallel
-    for cell_num,cell in enumerate(cells):
-        cell = cell.filter_genes_by_count(min_gene_spots=2)
+    #calculate distance of spot coords to cell centroid
+    spot_genes = []
+    spot_dists = []
+    for zslice in cell.zslices:
+        z_spot_coords = cell.spot_coords[zslice]
+        z_spot_genes = cell.spot_genes[zslice]
 
-        all_genes = np.array([g for z in cell.zslices for g in cell.spot_genes[z]])
-        all_spots = np.array([xy for z in cell.zslices for xy in cell.spot_coords[z]])
+        #Euclidean distance to slice centroid
+        slice_centroid = np.mean(cell.boundaries[zslice], axis=0)
+        dists = np.sum((z_spot_coords-slice_centroid)**2, axis=1)
 
-        pre_calc_nulls = {}
+        spot_genes.extend(z_spot_genes)
+        spot_dists.extend(dists)
 
-        for gene,count in cell.gene_counts.items():
+    #Rank the spots
+    spot_genes = np.array(spot_genes)
+    spot_ranks = np.array(spot_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
 
-            # Calculate the obs mean dist
-            gene_spots = all_spots[all_genes == gene]
-            obs_dist = utils.random_mean_pairs_dist(gene_spots, num_pairs)
+    #score the genes
+    exp_med = (cell.n+1)/2
+    for gene in cell.genes:
+        gene_ranks = spot_ranks[spot_genes == gene]
+        obs_med = np.median(gene_ranks)
+        score = (exp_med-obs_med)/(exp_med-1)
 
-            # Null distribution by gene-label swapping
-            if count in pre_calc_nulls:
-                null_dists = pre_calc_nulls[count]
-
-            else:
-                null_dists = []
-                for i in range(num_iterations):
-                    spot_inds = np.random.choice(cell.n,count,replace=False)
-                    null = utils.random_mean_pairs_dist(all_spots[spot_inds], num_pairs)
-                    null_dists.append(null)
-
-                null_dists = np.array(null_dists)
-                pre_calc_nulls[count] = null_dists
-
-            obs = sum(null_dists < obs_dist)
-            exp = len(null_dists)/2
-            score = (exp-obs)/exp
-            null_var = np.var([(exp-d)/exp for d in null_dists])
-
-            data['metric'].append('puncta')
-            data['cell_id'].append(cell.cell_id)
-            data['annotation'].append(cell.annotation)
-            data['num_spots'].append(cell.n)
-            data['gene'].append(gene)
-            data['num_gene_spots'].append(cell.gene_counts[gene])
-            data['score'].append(score)
-            data['variance'].append(null_var)
-
+        data['metric'].append('periph')
+        data['cell_id'].append(cell.cell_id)
+        data['annotation'].append(cell.annotation)
+        data['num_spots'].append(cell.n)
+        data['gene'].append(gene)
+        data['num_gene_spots'].append(cell.gene_counts[gene])
+        data['score'].append(score)
+        data['variance'].append(cell.gene_vars[gene])
 
     return pd.DataFrame(data)
 
@@ -340,53 +399,10 @@ def central(cells, **kwargs):
     #calculate the theoretical gene/cell variances (multiprocessing)
     cells = utils._iter_vars(cells, processes)
 
-    data = {
-        'metric':[],
-        'cell_id':[],
-        'annotation':[],
-        'num_spots':[],
-        'gene':[],
-        'num_gene_spots':[],
-        'score':[],
-        'variance':[],
-    }
+    with mp.Pool(processes=processes) as p:
+        score_df = pd.concat(p.imap_unordered(_central, cells), ignore_index=True)
 
-    for cell in cells:
-        #calculate distance of spot coords to cell centroid
-        spot_genes = []
-        spot_dists = []
-        for zslice in cell.zslices:
-            z_spot_coords = cell.spot_coords[zslice]
-            z_spot_genes = cell.spot_genes[zslice]
-
-            #Euclidean distance to slice centroid
-            slice_centroid = np.mean(cell.boundaries[zslice], axis=0)
-            dists = np.sum((z_spot_coords-slice_centroid)**2, axis=1)
-
-            spot_genes.extend(z_spot_genes)
-            spot_dists.extend(dists)
-
-        #Rank the spots
-        spot_genes = np.array(spot_genes)
-        spot_ranks = np.array(spot_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
-
-        #score the genes
-        exp_med = (cell.n+1)/2
-        for gene in cell.genes:
-            gene_ranks = spot_ranks[spot_genes == gene]
-            obs_med = np.median(gene_ranks)
-            score = (exp_med-obs_med)/(exp_med-1)
-
-            data['metric'].append('periph')
-            data['cell_id'].append(cell.cell_id)
-            data['annotation'].append(cell.annotation)
-            data['num_spots'].append(cell.n)
-            data['gene'].append(gene)
-            data['num_gene_spots'].append(cell.gene_counts[gene])
-            data['score'].append(score)
-            data['variance'].append(cell.gene_vars[gene])
-
-    return pd.DataFrame(data)
+    return score_df
 
 
 

@@ -1,12 +1,14 @@
 from . import utils
 
+import collections
 import pandas as pd
 import numpy as np
+import pysam
 
 import matplotlib as mpl
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-from matplotlib.collections import PolyCollection
+from matplotlib.collections import PolyCollection, PatchCollection
 from matplotlib.lines import Line2D
 from matplotlib import cm
 import seaborn as sns
@@ -341,4 +343,206 @@ def plot_tissue_level(cells, color_by_score_gene=None, color_by_ontology=False, 
     plt.axis('off')
 
     return fig,ax
+
+
+def read_buildup_plot(bam_path, locus, ann_df, stratify_tag=None, **kwargs):
+    """
+    Creates a rough read buildup plot with gene annotations
+    useful for creating many plots but not figure quality
+
+    returns a matplotlib axis object
+
+    Arguments:
+        bam_path [required]
+            path to a position sorted bam with bam.bai index
+            read counts can be grouped by custom bam flag such as cell-type
+
+        locus (chrom, start, end) [required]
+            these three arguments determine which genomic window to visualize
+            example locus = ('chr10', 86344341, 86350020)
+
+        ann_df [required]
+            pd.DataFrame object created from gtf/gff file that has the following columns
+            chrom/kind/start/end/label/group
+            examples of labels are gene names, and groups are transcript_ids
+
+        stratify_tag [optional]
+            a bam tag to use to stratify the reads
+            for example using 'CB' would create a separate line plot for each cell
+            more realistic is using 'XO' which stratifies by cell-type if that tag is present
+
+        **kwargs
+            ws: window_size, default 10
+    """
+    #handling locus
+    try:
+        chrom,start,end = locus
+        start = int(start)
+        end = int(end)
+    except:
+        raise Exception('Must pass in a tuple of locus info locus=("chr1",1,100)')
+
+
+    #handling kwargs
+    ws = kwargs.get('ws',10)
+    min_ont_counts = kwargs.get('min_ont_counts',0)
+
+    #Counting reads per tag in this region
+    def get_tag(read):
+        try:
+            return read.get_tag(stratify_tag)
+        except KeyError:
+            return None
+
+    strat_func = get_tag if stratify_tag else (lambda read: 'All')
+
+    pos_counts = collections.defaultdict(lambda: {p:0 for p in range(start//ws*ws,end//ws*ws+ws,ws)})
+    tot_counts = 0
+
+    with pysam.AlignmentFile(bam_path) as bam:
+        for r in bam.fetch(chrom,start,end):
+            if r.pos < start or r.pos > end:
+                continue
+
+            strat = strat_func(r)
+            if strat:
+                pos_counts[strat][r.pos//ws*ws] += 1
+                tot_counts += 1
+
+    count_df = (
+        pd.DataFrame(pos_counts)
+            .rename_axis('Window')
+            .reset_index()
+            .melt(
+                id_vars='Window',
+                var_name='Ontology',
+                value_name='Count',
+            )
+    )
+
+    count_df['CDF'] = (
+        count_df.groupby('Ontology')['Count']
+            .apply(lambda v: v.cumsum()/v.sum())
+    )
+   
+    count_df = count_df.groupby('Ontology').filter(lambda g: g['Count'].sum() >= min_ont_counts)
+    onts = count_df.groupby('Ontology')['CDF'].apply(lambda v: sum(v<0.5)).sort_values().index
+    ont_colors = {o:c for o,c in zip(onts,sns.color_palette("hls", len(onts)))}
+
+
+    #Subsetting the gene annotation info to this region
+    genes = []
+    if len(ann_df) > 0:
+        ann_df = ann_df[
+            ann_df['chrom'].eq(chrom) &
+            (ann_df['start'].between(start,end) | ann_df['end'].between(start,end))
+        ]
+
+        genes = ann_df['label'].unique()
+        gene_colors = {g:c for g,c in zip(genes,sns.color_palette("hls", len(genes)))}
+
+    #Creating subplots depending on the number of ontologies
+    #first row is the gene annotation
+    #rows 2 -> n+1 are the n different ontologies
+    num_rows = 3+len(onts)
+    fig,axs = plt.subplots(
+        figsize=(5,num_rows),
+        nrows=num_rows, ncols=1,
+        sharex=True, sharey=False,
+    )
+
+    ann_ax = axs[0]
+    ann_ax.axis('off')
+    count_ax = axs[1]
+    sum_ax = axs[2]
+
+    #Drawing the gene annotations exons/UTRs
+    for i,((gene,transcript_id),transcript_df) in enumerate(ann_df.groupby(['label','group'])):
+        transcript_df = ann_df[ann_df['label'].eq(gene) & ann_df['group'].eq(transcript_id)]
+
+        y = 2*(i+1)
+        #Draw a line for the intron from the total start to total end
+        min_x_transcript = transcript_df['start'].min()
+        max_x_transcript = transcript_df['end'].max()
+
+        intron_line = mpatches.Rectangle(
+            (min_x_transcript, y - 0.1),
+            max_x_transcript - min_x_transcript, 0.2,
+            linewidth=1,edgecolor='k',facecolor='k',
+        )
+        ann_ax.add_patch(intron_line)
+
+        for _,feature in transcript_df.iterrows():
+
+            if 'UTR' in feature['kind']:
+                height = 0.5
+
+            elif feature['kind'] == 'exon':
+                height = 1
+
+            else:
+                continue
+        
+            ymax = y+1
+            x = feature['start']
+            width = feature['end']-feature['start']
+
+            rect = mpatches.Rectangle(
+                (x, y - height/2),
+                width, height,
+                linewidth=0.5,edgecolor='k',facecolor=gene_colors[feature['label']],
+            )
+            ann_ax.add_patch(rect)
+
+        ann_ax.set_ylim(-1,y+1)
+
+        #Add legend on top of plot
+        handles = [Line2D([0],[0], color=gene_colors[g], lw=4) for g in genes]
+        ann_ax.legend(
+            handles, genes,
+            title='Gene names',
+            loc='upper center',
+            bbox_to_anchor=(-0.2, 0.5), ncol=len(genes),
+        )
+
+    #Plot individual density plots
+    for i,ont in enumerate(onts):
+        plot_df = count_df[count_df['Ontology'].eq(ont)]
+        sns.lineplot(
+            x = 'Window',
+            y = 'Count',
+            color = ont_colors[ont],
+            data = plot_df,
+            ax = axs[i+3],
+        )
+        axs[i+3].set_ylabel(ont)
+       
+
+    #Plot combined density and cumsum plots
+    sns.lineplot(
+        x = 'Window',
+        y = 'Count',
+        hue = 'Ontology',
+        hue_order = onts,
+        palette = ont_colors,
+        data = count_df, 
+        ax = count_ax,
+    )
+
+    sns.lineplot(
+        x = 'Window',
+        y = 'CDF',
+        hue = 'Ontology',
+        hue_order = onts,
+        palette = ont_colors,
+        data = count_df,
+        legend = False,
+        ax = sum_ax,
+    )
+    count_ax.legend(loc='center left', title='Cell-type', bbox_to_anchor=(1, 0.5))
+    count_ax.set_xlim(start,end)
+    sum_ax.set_xticks([])
+    
+    return fig
+
 
