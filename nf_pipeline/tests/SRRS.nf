@@ -14,11 +14,7 @@ Channel
 //Decide which metrics to score by
 metrics_ch = Channel.of('central','peripheral','radial','punctate')
 
-params.scoring_processes = 5
-
 process gene_cell_scoring {
-    cpus { params.scoring_processes }
-
     input:
     tuple val(experiment), val(sample), file(hdf5) from samples_ch
     each metric from metrics_ch
@@ -36,7 +32,6 @@ process gene_cell_scoring {
         --output_name "${experiment}_${sample}_${metric}.csv" \
         --min_genes_per_cell ${params.min_genes_per_cell} \
         --min_tot_counts_per_cell ${params.min_tot_counts_per_cell} \
-        --processes ${params.scoring_processes} \
     """
 }
 

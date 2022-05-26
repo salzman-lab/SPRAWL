@@ -9,12 +9,15 @@
 *.hdf5
 *.hdf5.*
 *.bam
+*.bam.bai
 *.fa
 *.fq
 *.pdf
 *.h5ad
 *.h5ad.*
 *.gtf
+*.gff
+*.gff3
 *.bedGraph
 *.xml
 *.gpkg
