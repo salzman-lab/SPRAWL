@@ -380,11 +380,11 @@ def map_bam_tag(bam_path, out_path, mapping, key_tag='CB', val_tag='XO', process
         )
         chrom_bam_paths = p.map(f, chroms)
 
-
     #merge the individual bam files and create index
-    merge_args = ['-@',str(processes),'-o', str(out_path)] + chrom_bam_paths
+    merge_args = ['-@',str(processes),str(out_path)] + chrom_bam_paths
     pysam.merge(*merge_args)
-    pysam.index(out_path)
+
+    pysam.index(str(out_path))
 
 
     #delete the tmpdir containing all the tmp bams
