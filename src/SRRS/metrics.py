@@ -192,7 +192,7 @@ def _radial(cell, num_iterations, num_pairs):
         obs = sum(null_dists < obs_dist)
         exp = len(null_dists)/2
         score = (exp-obs)/exp
-        null_var = np.var([(exp-d)/exp for d in null_dists])
+        null_var = np.var([(exp-sum(null_dists < d))/exp for d in null_dists])
 
         data['metric'].append('radial')
         data['cell_id'].append(cell.cell_id)
@@ -286,7 +286,7 @@ def _punctate(cell, num_iterations, num_pairs):
         obs = sum(null_dists < obs_dist)
         exp = len(null_dists)/2
         score = (exp-obs)/exp
-        null_var = np.var([(exp-d)/exp for d in null_dists])
+        null_var = np.var([(exp-sum(null_dists < d))/exp for d in null_dists])
 
         data['metric'].append('puncta')
         data['cell_id'].append(cell.cell_id)
