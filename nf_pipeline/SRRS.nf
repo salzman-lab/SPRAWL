@@ -14,9 +14,12 @@ Channel
 //Decide which metrics to score by
 metrics_ch = Channel.of('central','peripheral','radial','punctate')
 
+//Default params
 params.scoring_processes = 5
+params.permute_gene_labels = 'yes'
 
 process gene_cell_scoring {
+    cache 'lenient'
     cpus { params.scoring_processes }
 
     input:
@@ -37,6 +40,7 @@ process gene_cell_scoring {
         --min_genes_per_cell ${params.min_genes_per_cell} \
         --min_tot_counts_per_cell ${params.min_tot_counts_per_cell} \
         --processes ${params.scoring_processes} \
+        --permute_gene_labels ${params.permute_gene_labels} \
     """
 }
 

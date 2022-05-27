@@ -28,6 +28,7 @@ slurm*
 *.sbatch
 nextflow*
 .nextflow*
+*.bash
 
 # Temporary files and sandboxes
 *.swp

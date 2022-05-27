@@ -1,6 +1,8 @@
 #!/usr/local/bin/python
 #Above is python path in the docker container with SRRS installed
 import SRRS
+from SRRS import simulate
+
 import argparse
 
 def main():
@@ -13,6 +15,8 @@ def main():
     parser.add_argument('--min_genes_per_cell', type=int)
     parser.add_argument('--min_tot_counts_per_cell', type=int)
     parser.add_argument('--processes', type=int, default=1)
+    parser.add_argument('--permute_gene_labels', default='no')
+
     args = parser.parse_args()
 
     sample = SRRS.HDF5(args.hdf5_path)
@@ -23,6 +27,10 @@ def main():
         c for c in cells
         if c.n >= args.min_tot_counts_per_cell and len(c.genes) >= args.min_genes_per_cell
     )
+
+    #Permute cells before scoring depending on args
+    if args.permute_gene_labels != 'no':
+        cells = (simulate.null_permute_gene_labels(c, within_z=False) for c in cells)
 
     #score and write out
     score_df = SRRS.iter_scores(cells, metric=args.metric, processes=args.processes)
