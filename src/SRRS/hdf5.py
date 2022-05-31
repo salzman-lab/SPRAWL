@@ -76,7 +76,7 @@ class HDF5:
         """
         Count the number of cells in the HDF5
         """
-        return len(self._f['cells'].keys())
+        return len(self.cell_ids)
 
     @property
     def num_genes(self):

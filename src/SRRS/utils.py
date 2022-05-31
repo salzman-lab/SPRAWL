@@ -393,12 +393,13 @@ def map_bam_tag(bam_path, out_path, mapping, key_tag='CB', val_tag='XO', process
     return out_path
 
 
-def readzs_proxy_score(bam_path, locus, stratify_tag=None, **kwargs):
+def bam_read_positions(bam_path, locus, stratify_tag=None, **kwargs):
     """
-    Flexible function to create a ReadZs score proxy directly from a bam
-    Can optionally stratify by a tag in the bam
+    Flexible function to create a table of Read positions within a locus
+    Can optionally stratify by a tag in the bam such as XO for cell-type
     """
-    min_ont_reads = kwargs.get('min_ont_reads',0)
+    min_tag_reads = kwargs.get('min_tag_reads',0)
+    strand = kwargs.get('strand',None)
 
     #handling locus
     try:
@@ -428,13 +429,39 @@ def readzs_proxy_score(bam_path, locus, stratify_tag=None, **kwargs):
             if r.pos < start or r.pos > end:
                 continue
 
+            if strand:
+                strand_match = (
+                    (r.is_forward and strand == '+') or 
+                    (r.is_reverse and strand == '-')
+                )
+                if not strand_match:
+                    continue
+
+
             strat = strat_func(r)
             if strat:
                 count_data['strat'].append(strat)
                 count_data['pos'].append(r.pos)
 
     count_df = pd.DataFrame(count_data)
-    count_df = count_df.groupby('strat').filter(lambda g: len(g) > min_ont_reads)
+    count_df = count_df.groupby('strat').filter(lambda g: len(g) > min_tag_reads)
+    return count_df
+
+
+def readzs_proxy_score(bam_path, locus, stratify_tag=None, **kwargs):
+    """
+    Flexible function to create a ReadZs score proxy directly from a bam
+    Can optionally stratify by a tag in the bam
+    """
+    try:
+        chrom,start,end = locus
+        start = int(start)
+        end = int(end)
+    except:
+        raise Exception('Must pass in a tuple of locus info such as locus=("chr1",1,100)')
+
+
+    count_df = bam_read_positions(bam_path, locus, stratify_tag=stratify_tag, **kwargs)
 
     exp_med = (end+start)/2
     span = end-start

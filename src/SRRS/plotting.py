@@ -345,7 +345,7 @@ def plot_tissue_level(cells, color_by_score_gene=None, color_by_ontology=False, 
     return fig,ax
 
 
-def read_buildup_plot(bam_path, locus, ann_df, stratify_tag=None, **kwargs):
+def read_buildup_plot(bam_path, locus, ann_df, spatial_df=None, stratify_tag=None, **kwargs):
     """
     Creates a rough read buildup plot with gene annotations
     useful for creating many plots but not figure quality
@@ -382,50 +382,39 @@ def read_buildup_plot(bam_path, locus, ann_df, stratify_tag=None, **kwargs):
     except:
         raise Exception('Must pass in a tuple of locus info locus=("chr1",1,100)')
 
+    count_df = utils.bam_read_positions(bam_path, locus, stratify_tag=stratify_tag, **kwargs)
 
     #handling kwargs
     ws = kwargs.get('ws',10)
-    min_ont_counts = kwargs.get('min_ont_counts',0)
+    strand = kwargs.get('strand',None)
 
-    #Counting reads per tag in this region
-    def get_tag(read):
-        try:
-            return read.get_tag(stratify_tag)
-        except KeyError:
-            return None
+    bins = np.arange(start,end+ws,ws)
+    labels = bins[:-1]
 
-    strat_func = get_tag if stratify_tag else (lambda read: 'All')
 
-    pos_counts = collections.defaultdict(lambda: {p:0 for p in range(start//ws*ws,end//ws*ws+ws,ws)})
-    tot_counts = 0
-
-    with pysam.AlignmentFile(bam_path) as bam:
-        for r in bam.fetch(chrom,start,end):
-            if r.pos < start or r.pos > end:
-                continue
-
-            strat = strat_func(r)
-            if strat:
-                pos_counts[strat][r.pos//ws*ws] += 1
-                tot_counts += 1
-
-    count_df = (
-        pd.DataFrame(pos_counts)
-            .rename_axis('Window')
-            .reset_index()
-            .melt(
-                id_vars='Window',
-                var_name='Ontology',
-                value_name='Count',
-            )
+    count_df['pos'] = pd.cut(
+        count_df['pos'],
+        bins=bins,
+        labels=labels,
     )
+    count_df = count_df.groupby(['strat','pos']).size().reset_index(name='Count')
+    count_df = count_df.rename(columns={'strat':'Ontology','pos':'Window'})
 
     count_df['CDF'] = (
         count_df.groupby('Ontology')['Count']
             .apply(lambda v: v.cumsum()/v.sum())
     )
-   
-    count_df = count_df.groupby('Ontology').filter(lambda g: g['Count'].sum() >= min_ont_counts)
+
+    #if there is spatial data provided then subset to just shared ontologies
+    if spatial_df is not None:
+
+        shared_onts = set(count_df['Ontology']).intersection(spatial_df['annotation'])
+        if not shared_onts:
+            sys.stderr.write('Warning: No shared ontologies between spatial_df and count_df\n')
+
+        spatial_df = spatial_df[spatial_df['annotation'].isin(shared_onts)]
+        count_df = count_df[count_df['Ontology'].isin(shared_onts)]
+  
     onts = count_df.groupby('Ontology')['CDF'].apply(lambda v: sum(v<0.5)).sort_values().index
     ont_colors = {o:c for o,c in zip(onts,sns.color_palette("hls", len(onts)))}
 
@@ -438,23 +427,97 @@ def read_buildup_plot(bam_path, locus, ann_df, stratify_tag=None, **kwargs):
             (ann_df['start'].between(start,end) | ann_df['end'].between(start,end))
         ]
 
+        if strand:
+            ann_df = ann_df[ann_df['strand'].eq(strand)]
+
         genes = ann_df['label'].unique()
         gene_colors = {g:c for g,c in zip(genes,sns.color_palette("hls", len(genes)))}
 
     #Creating subplots depending on the number of ontologies
+    #and whether or not there is are spatial data to plot alongside
     #first row is the gene annotation
     #rows 2 -> n+1 are the n different ontologies
+    ncols = 1 if spatial_df is None else 2
+
     num_rows = 3+len(onts)
     fig,axs = plt.subplots(
-        figsize=(5,num_rows),
-        nrows=num_rows, ncols=1,
-        sharex=True, sharey=False,
+        figsize=(4*ncols,num_rows),
+        nrows=num_rows, ncols=ncols,
+        sharex=False, sharey=False,
     )
 
-    ann_ax = axs[0]
+    ann_ax = axs[0] if spatial_df is None else axs[0][1]
     ann_ax.axis('off')
-    count_ax = axs[1]
-    sum_ax = axs[2]
+    count_ax = axs[1] if spatial_df is None else axs[1][1]
+    sum_ax = axs[2] if spatial_df is None else axs[2][1]
+
+    #Drawing spatial_df if present
+    if spatial_df is not None:
+        #merging the top left axes into a larger axis
+        gs = axs[0, 0].get_gridspec()
+        for ax in axs[[0,1], 0]:
+            ax.remove()
+
+        corr_ax = fig.add_subplot(gs[:2, 0])
+        axs[2][0].axis('off')
+
+        mean_spatial = spatial_df.groupby('annotation')['score'].mean()
+
+        exp_val = (start+end)/2
+        half_span = (end-start)/2
+        count_df['Window'] = count_df['Window'].astype(int)
+
+        mean_readzs = count_df.groupby('Ontology').apply(
+            lambda g: ((g['Window'].multiply(g['Count']).sum()/g['Count'].sum())-exp_val)/half_span
+        )
+
+        corr_df = pd.DataFrame({
+            'Spatial':mean_spatial,
+            'Genomic':mean_readzs,
+        }).reset_index()
+        corr_df = corr_df.rename(columns={'index':'ont'})
+        
+        sns.regplot(
+            x = 'Genomic',
+            y = 'Spatial',
+            color = 'grey',
+            ci = None,
+            scatter_kws = {'s':0},
+            line_kws = {'linestyle':'dashed'},
+            data = corr_df,
+            ax = corr_ax,
+        )
+
+        sns.scatterplot(
+            x = 'Genomic',
+            y = 'Spatial',
+            hue = 'ont',
+            palette = ont_colors,
+            data = corr_df,
+            legend = False,
+            ax = corr_ax,
+        )
+
+        #Create each violinplot for the different onts
+        for i,ont in enumerate(onts):
+            plot_ax = axs[i+3][0]
+            sns.violinplot(
+                x = 'score',
+                y = 'annotation',
+                orient = 'h',
+                color = ont_colors[ont],
+                data = spatial_df[spatial_df['annotation'].eq(ont)],
+                ax = plot_ax,
+            )
+            plot_ax.axvline(0, linestyle='dashed', color='grey')
+            plot_ax.set_xlabel('')
+            plot_ax.set_ylabel('')
+            plot_ax.set_xlim(-1,1)
+            plot_ax.set_xticks([])
+
+        #Add an xlabel to the last subplot
+        plot_ax.set_xticks([-1,0,1])
+        plot_ax.set_xlabel('Spatial score')
 
     #Drawing the gene annotations exons/UTRs
     for i,((gene,transcript_id),transcript_df) in enumerate(ann_df.groupby(['label','group'])):
@@ -494,29 +557,39 @@ def read_buildup_plot(bam_path, locus, ann_df, stratify_tag=None, **kwargs):
             )
             ann_ax.add_patch(rect)
 
-        ann_ax.set_ylim(-1,y+1)
+    ann_ax.set_ylim(-1,y+1)
+    ann_ax.set_xlim(start,end)
+    ann_ax.set_xticks([])
 
-        #Add legend on top of plot
-        handles = [Line2D([0],[0], color=gene_colors[g], lw=4) for g in genes]
-        ann_ax.legend(
-            handles, genes,
-            title='Gene names',
-            loc='upper center',
-            bbox_to_anchor=(-0.2, 0.5), ncol=len(genes),
-        )
+    #Add legend on top of plot
+    handles = [Line2D([0],[0], color=gene_colors[g], lw=4) for g in genes]
+    ann_ax.legend(
+        handles, genes,
+        title='Gene names',
+        loc='center left',
+        bbox_to_anchor=(1, 0.5), 
+    )
 
     #Plot individual density plots
     for i,ont in enumerate(onts):
+        plot_ax = axs[i+3] if spatial_df is None else axs[i+3][1]
         plot_df = count_df[count_df['Ontology'].eq(ont)]
+
         sns.lineplot(
             x = 'Window',
             y = 'Count',
             color = ont_colors[ont],
             data = plot_df,
-            ax = axs[i+3],
+            ax = plot_ax,
         )
-        axs[i+3].set_ylabel(ont)
-       
+        plot_ax.set_ylabel(ont)
+        plot_ax.set_xlim(start,end)
+        plot_ax.set_xticks([])
+        plot_ax.set_xlabel('')
+
+    #Add an xlabel to the last subplot
+    plot_ax.set_xlabel(chrom)
+  
 
     #Plot combined density and cumsum plots
     sns.lineplot(
@@ -526,8 +599,12 @@ def read_buildup_plot(bam_path, locus, ann_df, stratify_tag=None, **kwargs):
         hue_order = onts,
         palette = ont_colors,
         data = count_df, 
+        legend = False,
         ax = count_ax,
     )
+    count_ax.set_xlim(start,end)
+    count_ax.set_xticks([])
+    count_ax.set_xlabel('')
 
     sns.lineplot(
         x = 'Window',
@@ -536,13 +613,15 @@ def read_buildup_plot(bam_path, locus, ann_df, stratify_tag=None, **kwargs):
         hue_order = onts,
         palette = ont_colors,
         data = count_df,
-        legend = False,
         ax = sum_ax,
     )
-    count_ax.legend(loc='center left', title='Cell-type', bbox_to_anchor=(1, 0.5))
-    count_ax.set_xlim(start,end)
+    sum_ax.legend(loc='center left', title='Cell-type', bbox_to_anchor=(1, 0.5))
+    sum_ax.set_xlim(start,end)
     sum_ax.set_xticks([])
+    sum_ax.set_xlabel('')
+
     
     return fig
+
 
 
