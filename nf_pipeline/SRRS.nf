@@ -41,6 +41,7 @@ metrics_ch = Channel.fromList(metrics_list)
 //Default params
 params.scoring_processes = 5
 params.permute_gene_labels = 'no'
+params.shrink_factor = 1
 
 process gene_cell_scoring {
     cache 'lenient'
@@ -65,6 +66,7 @@ process gene_cell_scoring {
         --min_tot_counts_per_cell ${params.min_tot_counts_per_cell} \
         --processes ${params.scoring_processes} \
         --permute_gene_labels ${params.permute_gene_labels} \
+        --shrink_factor ${params.shrink_factor} \
     """
 }
 

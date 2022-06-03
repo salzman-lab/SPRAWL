@@ -20,21 +20,32 @@ def main():
 
     pdf = matplotlib.backends.backend_pdf.PdfPages(args.output_name)
 
-    #Separate violinplot for each gene with y-axis over all ontologies
+    #Plot boxplots with a dot for each cell where the gene was found
     #y-axis is different ontology
+    PROPS = {
+        'boxprops':{'facecolor':'none', 'edgecolor':'black'},
+    }
+
     for gene,g in df.groupby('gene'):
         
         order = g.groupby('annotation')['score'].median().sort_values().index
         
-        sns.violinplot(
+        sns.stripplot(
             x = 'score',
             y = 'annotation',
             orient = 'h',
             order = order,
             data = g,
         )
+        sns.boxplot(
+            x = 'score',
+            y = 'annotation',
+            orient = 'h',
+            order = order,
+            data = g,
+            **PROPS,
+        )
         plt.ylabel('')
-        plt.xlim(-1,1)
         plt.title('{}'.format(gene))
         pdf.savefig(bbox_inches='tight')
         plt.close()

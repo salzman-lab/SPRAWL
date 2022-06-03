@@ -305,30 +305,31 @@ def angle_between(v1, v2):
     return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
 
 
-def _map_bam_tag_chr(chrom, bam_path, mapping, key_tag, val_tag, tmp_dir):
+def _map_bam_tag_chr(chroms, bam_path, mapping, key_tag, val_tag, tmp_dir):
     """
     Helper function to map bam tags
     creates a bam output file in a tmp_dir
 
     returns the path to the tmp bam file
     """
-    chr_out_path = os.path.join(tmp_dir.name, '{}.bam'.format(chrom))
+    chr_out_path = os.path.join(tmp_dir.name, '{}.bam'.format(chroms[0]))
 
     in_bam = pysam.AlignmentFile(bam_path)
     out_bam = pysam.AlignmentFile(chr_out_path, 'wb', template=in_bam)
 
-    for i,read in enumerate(in_bam.fetch(chrom)):
+    for chrom in chroms:
+        for read in in_bam.fetch(chrom):
 
-        try:
-            k = read.get_tag(key_tag)
-        except KeyError:
-            continue
+            try:
+                k = read.get_tag(key_tag)
+            except KeyError:
+                continue
 
-        if k not in mapping:
-            continue
+            if k not in mapping:
+                continue
 
-        read.set_tag(val_tag, mapping[k])
-        out_bam.write(read)
+            read.set_tag(val_tag, mapping[k])
+            out_bam.write(read)
 
     out_bam.close()
     in_bam.close()
@@ -366,7 +367,9 @@ def map_bam_tag(bam_path, out_path, mapping, key_tag='CB', val_tag='XO', process
 
     #get the chroms for multiplexing
     with pysam.AlignmentFile(bam_path) as bam:
-        chroms = bam.references
+        chrom_dict = {ref:bam.get_reference_length(ref) for ref in bam.references}
+
+    chrom_groups = create_balanced_groupings(processes,chrom_dict)
 
     #perform the mapping
     with mp.Pool(processes=processes) as p:
@@ -378,14 +381,12 @@ def map_bam_tag(bam_path, out_path, mapping, key_tag='CB', val_tag='XO', process
             val_tag = val_tag,
             tmp_dir = tmp_dir,
         )
-        chrom_bam_paths = p.map(f, chroms)
+        chrom_bam_paths = p.map(f, chrom_groups.keys())
 
     #merge the individual bam files and create index
-    merge_args = ['-@',str(processes),str(out_path)] + chrom_bam_paths
+    merge_args = ['-@',str(processes),'-f',str(out_path)] + chrom_bam_paths
     pysam.merge(*merge_args)
-
     pysam.index(str(out_path))
-
 
     #delete the tmpdir containing all the tmp bams
     tmp_dir.cleanup()
@@ -467,4 +468,62 @@ def readzs_proxy_score(bam_path, locus, stratify_tag=None, **kwargs):
     span = end-start
     ont_to_score = count_df.groupby('strat')['pos'].median().subtract(exp_med).div(span).to_dict()
     return ont_to_score
+
+
+def create_balanced_groupings(n,items):
+    """
+    Group a dictionary of key=label, value=weight into n semi-balanced groups
+    
+    Example 1:
+        input
+            n = 3
+            items = {'a':10,'b':90,'c':50,'d':40}
+        
+        output:
+            {('b',):90,('a','d'):50,('c',):50}
+            
+    Example 2:
+        input
+            n = 2
+            items = {'a':10,'b':90,'c':50,'d':40}
+        
+        output:
+            {('b',):90,('a','c','d'):100}
+
+    Example 3:
+        input
+            n = 20
+            items = {'a':10,'b':90,'c':50,'d':40}
+        
+        output:
+            {('a',):10, ('b',):90, ('c',):50, ('d',):40}
+
+    """
+    #special case where there are too many groups to split into (example 3 in the docstring)
+    if n >= len(items):
+        return {(k,):v for k,v in items.items()}
+
+    target_group_weight = sum(items.values())/n
+    labels = sorted(items, key=items.get)
+    output = {}
+       
+    while len(output) < n:
+        cw = 0
+        ls = set()
+        
+        while cw < target_group_weight:
+            l = labels.pop(0)
+            ls.add(l)
+            cw += items.pop(l)
+
+            #stop adding items, the remaining items will each be their own groups
+            if len(labels) == n-len(output)-1:
+                break
+            
+        output[tuple(sorted(list(ls)))] = cw
+        
+        
+    return output
+
+
 
