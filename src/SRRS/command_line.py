@@ -3,6 +3,7 @@ from . import scoring
 from . import utils
 
 import pandas as pd
+import logging
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
@@ -44,6 +45,7 @@ def gene_cell_scoring(**kwargs):
 @click.argument('output', type=click.Path())
 @click.argument('mapping', type=click.Path())
 @click.option('--processes', type=int, required=False)
+@click.option('--verbose', '-v', is_flag=True, help="Print more output.")
 def annotate(**kwargs):
     """
     Annotate a bam file with a custom tag using cell-type or other mapping
@@ -56,6 +58,7 @@ def annotate(**kwargs):
     mapping_df = pd.read_csv(kwargs['mapping'])
     key_tag,val_tag = mapping_df.columns
     mapping = dict(mapping_df.values)
+    logging_level=logging.DEBUG if kwargs['verbose'] else logging.INFO
 
     utils.map_bam_tag(
         kwargs['bam'],
@@ -64,6 +67,7 @@ def annotate(**kwargs):
         key_tag=key_tag, 
         val_tag=val_tag, 
         processes=kwargs.get('processes',1),
+        logging_level=logging_level,
     )
 
 

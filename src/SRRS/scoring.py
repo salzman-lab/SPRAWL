@@ -42,9 +42,10 @@ def iter_scores(cells, metric, **kwargs):
     return score_df
 
 
-def gene_celltype_scoring(srrs_df, min_cells_per_gene_ont=1, extra_cols={}):
+def gene_celltype_scoring(srrs_df, gb_cols=['gene','annotation'], min_cells_per_gene_ont=1, extra_cols={}):
     """
-    Calculates gene/cell-type SRRS scores
+    Calculates aggregated SRRS scores at the gene/cell-type level by default
+    Can also be calculated at the gene level using gb_cols=['gene']
 
     input in the form of a pd.DataFrame with the following columns (not necessarily in this order)
          'metric' peripheral/polar etc
@@ -66,7 +67,6 @@ def gene_celltype_scoring(srrs_df, min_cells_per_gene_ont=1, extra_cols={}):
     if isinstance(srrs_df,str):
         srrs_df = pd.read_csv(srrs_df)
 
-    gb_cols = ['gene','annotation']
 
     #Filter out gene/onts that have too few cells
     srrs_df = srrs_df.groupby(gb_cols).filter(lambda g: g['cell_id'].nunique() >= min_cells_per_gene_ont)
@@ -110,7 +110,7 @@ def gene_celltype_scoring(srrs_df, min_cells_per_gene_ont=1, extra_cols={}):
     if 'sample' not in srrs_df:
         srrs_df['sample'] = 'sample1'
 
-    #groupby sample/gene/annotation with bh_p
+    #group and dedup with bh_p values
     agg_df = srrs_df.groupby(gb_cols).agg(
         experiment = ('experiment','first'),
         sample = ('sample','first'),

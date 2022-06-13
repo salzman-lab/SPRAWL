@@ -1,6 +1,8 @@
 #!/usr/local/bin/python
 #Above is python path in the docker container with SRRS installed
 import SRRS
+from SRRS import simulate
+
 import argparse
 
 def main():
@@ -13,20 +15,30 @@ def main():
     parser.add_argument('--min_genes_per_cell', type=int)
     parser.add_argument('--min_tot_counts_per_cell', type=int)
     parser.add_argument('--processes', type=int, default=1)
+    parser.add_argument('--permute_gene_labels', default='no')
+    parser.add_argument('--shrink_factor', type=float, default=1.0)
+
     args = parser.parse_args()
 
     sample = SRRS.HDF5(args.hdf5_path)
     cells = sample.iter_cells()
 
-    #Filter out cells with fewer than 100 total spots
+    #Permute cells before scoring depending on args
+    if args.permute_gene_labels != 'no':
+        cells = (simulate.null_permute_gene_labels(c, within_z=False) for c in cells)
+
+    #Shrink cells
+    if args.shrink_factor != 1:
+        cells = (c.shrink_boundaries(scale_factor=args.shrink_factor) for c in cells)
+
+    #Filter out cells with fewer than min total spots and min total genes
     cells = (
         c for c in cells
-        if c.n >= args.min_tot_counts_per_cell and len(c.genes) >= args.min_genes_per_cell
+        if (c.n >= args.min_tot_counts_per_cell) and (len(c.genes) >= args.min_genes_per_cell)
     )
 
-    #score and write out
+    #score and write out table
     score_df = SRRS.iter_scores(cells, metric=args.metric, processes=args.processes)
-
     score_df['experiment'] = args.experiment
     score_df['sample'] = args.sample
     score_df.to_csv(args.output_name, index=False)

@@ -1,16 +1,17 @@
-import multiprocessing as mp
-import operator as op
 import pandas as pd
 import numpy as np
-import collections
+import pysam
+
+import multiprocessing as mp
+import operator as op
 import functools
+import collections
 import tempfile
 import random
-import scipy
-import pysam
 import math
+import sys
 import os
-
+import logging
 
 p_med_cache = {}
 ncr_mem = {}
@@ -291,7 +292,7 @@ def random_mean_pairs_angle(spots, centroid, num_pairs):
 
 #taken directly from https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
 def angle_between(v1, v2):
-    """ Returns the angle in radians between vectors 'v1' and 'v2'::
+    """ Returns the angle in radians between vectors 'v1' and 'v2'
 
             >>> angle_between((1, 0, 0), (0, 1, 0))
             1.5707963267948966
@@ -305,30 +306,31 @@ def angle_between(v1, v2):
     return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
 
 
-def _map_bam_tag_chr(chrom, bam_path, mapping, key_tag, val_tag, tmp_dir):
+def _map_bam_tag_chr(chroms, bam_path, mapping, key_tag, val_tag, tmp_dir):
     """
     Helper function to map bam tags
     creates a bam output file in a tmp_dir
 
     returns the path to the tmp bam file
     """
-    chr_out_path = os.path.join(tmp_dir.name, '{}.bam'.format(chrom))
+    chr_out_path = os.path.join(tmp_dir.name, '{}.bam'.format(chroms[0]))
 
     in_bam = pysam.AlignmentFile(bam_path)
     out_bam = pysam.AlignmentFile(chr_out_path, 'wb', template=in_bam)
 
-    for i,read in enumerate(in_bam.fetch(chrom)):
+    for chrom in chroms:
+        for read in in_bam.fetch(chrom):
 
-        try:
-            k = read.get_tag(key_tag)
-        except KeyError:
-            continue
+            try:
+                k = read.get_tag(key_tag)
+            except KeyError:
+                continue
 
-        if k not in mapping:
-            continue
+            if k not in mapping:
+                continue
 
-        read.set_tag(val_tag, mapping[k])
-        out_bam.write(read)
+            read.set_tag(val_tag, mapping[k])
+            out_bam.write(read)
 
     out_bam.close()
     in_bam.close()
@@ -336,7 +338,7 @@ def _map_bam_tag_chr(chrom, bam_path, mapping, key_tag, val_tag, tmp_dir):
     return chr_out_path
 
 
-def map_bam_tag(bam_path, out_path, mapping, key_tag='CB', val_tag='XO', processes=1):
+def map_bam_tag(bam_path, out_path, mapping, key_tag='CB', val_tag='XO', processes=1, logging_level=logging.INFO):
     """
     Create a new sorted and indexed bam file with an additional bam tag field
     Potentially useful for adding celltype tag to a bam for downstream processing
@@ -362,11 +364,23 @@ def map_bam_tag(bam_path, out_path, mapping, key_tag='CB', val_tag='XO', process
         processes
             the number of processes to use to multiplex the operation
     """
+    logging.basicConfig(
+        format='%(asctime)s: %(message)s',
+        level=logging_level,
+        stream=sys.stdout,
+    )
+    logger = logging.getLogger()
+
     tmp_dir = tempfile.TemporaryDirectory()
 
     #get the chroms for multiplexing
     with pysam.AlignmentFile(bam_path) as bam:
-        chroms = bam.references
+        chrom_dict = {ref:bam.get_reference_length(ref) for ref in bam.references}
+
+    logger.info(f'Found {len(chrom_dict)} chromosomes/contigs')
+    logger.debug(f'List of chromosomes/contigs {chrom_dict.keys()}')
+
+    chrom_groups = create_balanced_groupings(processes,chrom_dict)
 
     #perform the mapping
     with mp.Pool(processes=processes) as p:
@@ -378,14 +392,18 @@ def map_bam_tag(bam_path, out_path, mapping, key_tag='CB', val_tag='XO', process
             val_tag = val_tag,
             tmp_dir = tmp_dir,
         )
-        chrom_bam_paths = p.map(f, chroms)
+        chrom_bam_paths = []
+        for i,chrom_bam_path in enumerate(p.map(f, chrom_groups.keys())):
+            logger.info(f'Finished chrom group {i+1} of {len(chrom_groups)}')
+            chrom_bam_paths.append(chrom_bam_path)
 
     #merge the individual bam files and create index
-    merge_args = ['-@',str(processes),str(out_path)] + chrom_bam_paths
+    merge_args = ['-@',str(processes),'-c','-f',str(out_path)] + chrom_bam_paths
+    logger.info(f'Merging {len(chrom_groups)} annotated bams')
     pysam.merge(*merge_args)
-
+    logger.info('Finished merge, starting indexing')
     pysam.index(str(out_path))
-
+    logger.info('Finished indexing')
 
     #delete the tmpdir containing all the tmp bams
     tmp_dir.cleanup()
@@ -393,12 +411,13 @@ def map_bam_tag(bam_path, out_path, mapping, key_tag='CB', val_tag='XO', process
     return out_path
 
 
-def readzs_proxy_score(bam_path, locus, stratify_tag=None, **kwargs):
+def bam_read_positions(bam_path, locus, stratify_tag=None, **kwargs):
     """
-    Flexible function to create a ReadZs score proxy directly from a bam
-    Can optionally stratify by a tag in the bam
+    Flexible function to create a table of Read positions within a locus
+    Can optionally stratify by a tag in the bam such as XO for cell-type
     """
-    min_ont_reads = kwargs.get('min_ont_reads',0)
+    min_tag_reads = kwargs.get('min_tag_reads',0)
+    strand = kwargs.get('strand',None)
 
     #handling locus
     try:
@@ -428,16 +447,100 @@ def readzs_proxy_score(bam_path, locus, stratify_tag=None, **kwargs):
             if r.pos < start or r.pos > end:
                 continue
 
+            if strand:
+                strand_match = (
+                    (r.is_forward and strand == '+') or 
+                    (r.is_reverse and strand == '-')
+                )
+                if not strand_match:
+                    continue
+
+
             strat = strat_func(r)
             if strat:
                 count_data['strat'].append(strat)
                 count_data['pos'].append(r.pos)
 
     count_df = pd.DataFrame(count_data)
-    count_df = count_df.groupby('strat').filter(lambda g: len(g) > min_ont_reads)
+    count_df = count_df.groupby('strat').filter(lambda g: len(g) > min_tag_reads)
+    return count_df
+
+
+def readzs_proxy_score(bam_path, locus, stratify_tag=None, **kwargs):
+    """
+    Flexible function to create a ReadZs score proxy directly from a bam
+    Can optionally stratify by a tag in the bam
+    """
+    try:
+        chrom,start,end = locus
+        start = int(start)
+        end = int(end)
+    except:
+        raise Exception('Must pass in a tuple of locus info such as locus=("chr1",1,100)')
+
+
+    count_df = bam_read_positions(bam_path, locus, stratify_tag=stratify_tag, **kwargs)
 
     exp_med = (end+start)/2
     span = end-start
     ont_to_score = count_df.groupby('strat')['pos'].median().subtract(exp_med).div(span).to_dict()
     return ont_to_score
+
+
+def create_balanced_groupings(n,items):
+    """
+    Group a dictionary of key=label, value=weight into n semi-balanced groups
+    
+    Example 1:
+        input
+            n = 3
+            items = {'a':10,'b':90,'c':50,'d':40}
+        
+        output:
+            {('b',):90,('a','d'):50,('c',):50}
+            
+    Example 2:
+        input
+            n = 2
+            items = {'a':10,'b':90,'c':50,'d':40}
+        
+        output:
+            {('b',):90,('a','c','d'):100}
+
+    Example 3:
+        input
+            n = 20
+            items = {'a':10,'b':90,'c':50,'d':40}
+        
+        output:
+            {('a',):10, ('b',):90, ('c',):50, ('d',):40}
+
+    """
+    #special case where there are too many groups to split into (example 3 in the docstring)
+    if n >= len(items):
+        return {(k,):v for k,v in items.items()}
+
+    target_group_weight = sum(items.values())/n
+    labels = sorted(items, key=items.get)
+    output = {}
+       
+    while len(output) < n:
+        cw = 0
+        ls = set()
+        
+        while cw < target_group_weight:
+            l = labels.pop(0)
+            ls.add(l)
+            cw += items.pop(l)
+
+            #stop adding items, the remaining items will each be their own groups
+            if len(labels) == n-len(output)-1:
+                break
+            
+        output[tuple(sorted(list(ls)))] = cw
+        
+        
+    return output
+
+
 

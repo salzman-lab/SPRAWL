@@ -9,6 +9,7 @@ import collections
 import itertools
 import random
 import math
+import time
 import sys
 import os
 
@@ -167,6 +168,26 @@ def _radial(cell, num_iterations, num_pairs):
     all_genes = np.array([g for z in cell.zslices for g in cell.spot_genes[z]])
     all_spots = np.array([xy for z in cell.zslices for xy in cell.spot_coords[z]])
 
+    #theoretical variance depends on just the number of iterations
+    #Let Y ~ Discrete Uniform from 0 to n, where n is the number of iterations
+    #Y represents the number of null permutations that are less than the obs distance and ranges from 0 to 'all'
+    #But our score is X = (Y-n/2)/(n/2) because we wanted to center it at 0 and scale it to have values between -1 and 1
+
+    #E[Y] = n/2 from definition of discrete uniform that ranges from 0 to n
+    #Var[Y] = n(n+2)/12 
+
+    #E[X] = (2/n)(E[Y]-n/2) = (2/n)(n/2-n/2) = 0
+    #Var[X] = (4/n^2)Var[Y] #since Var(aX+b) = (a^2)Var[X]
+    #Var[X] = (4/n^2)(n(n+2)/12)
+    #Var[X] = (1/n^2)(n(n+2)/3)
+    #Var[X] = (1/n)((n+2)/3)
+    #Var[X] = (n+2)/3n
+
+    #Also as n --> inf, Var[X] --> 1/3
+    #Var[X] = (1+2/n)/3 --> 1/3
+
+    var = (num_iterations+2)/(3*num_iterations)
+
     pre_calc_nulls = {}
 
     for gene,count in cell.gene_counts.items():
@@ -181,6 +202,9 @@ def _radial(cell, num_iterations, num_pairs):
 
         else:
             null_dists = []
+
+            #This is the time-consuming portion, having to make thousands of permutations for the null
+            start = time.time()
             for i in range(num_iterations):
                 spot_inds = np.random.choice(cell.n,count,replace=False)
                 null = utils.random_mean_pairs_angle(all_spots[spot_inds], cell_centroid, num_pairs)
@@ -190,9 +214,8 @@ def _radial(cell, num_iterations, num_pairs):
             pre_calc_nulls[count] = null_dists
 
         obs = sum(null_dists < obs_dist)
-        exp = len(null_dists)/2
+        exp = num_iterations/2
         score = (exp-obs)/exp
-        null_var = np.var([(exp-d)/exp for d in null_dists])
 
         data['metric'].append('radial')
         data['cell_id'].append(cell.cell_id)
@@ -201,7 +224,7 @@ def _radial(cell, num_iterations, num_pairs):
         data['gene'].append(gene)
         data['num_gene_spots'].append(cell.gene_counts[gene])
         data['score'].append(score)
-        data['variance'].append(null_var)
+        data['variance'].append(var)
 
 
     return pd.DataFrame(data)
@@ -236,7 +259,9 @@ def radial(cells, **kwargs):
     f = functools.partial(_radial, num_iterations=num_iterations, num_pairs=num_pairs)
     
     with mp.Pool(processes=processes) as p:
-        score_df = pd.concat(p.imap_unordered(f, cells), ignore_index=True)
+        score_df = pd.DataFrame()
+        for i,cell_df in enumerate(p.imap_unordered(f, cells)):
+            score_df = pd.concat((score_df, cell_df), ignore_index=True)
 
     return score_df
 
@@ -261,8 +286,23 @@ def _punctate(cell, num_iterations, num_pairs):
     all_genes = np.array([g for z in cell.zslices for g in cell.spot_genes[z]])
     all_spots = np.array([xy for z in cell.zslices for xy in cell.spot_coords[z]])
 
-    pre_calc_nulls = {}
+    #theoretical variance depends on just the number of iterations
+    #Let Y ~ Discrete Uniform from 0 to n, where n is the number of iterations
+    #Y represents the number of null permutations that are less than the obs distance and ranges from 0 to 'all'
+    #But our score is X = (Y-n/2)/(n/2) because we wanted to center it at 0 and scale it to have values between -1 and 1
 
+    #E[Y] = n/2 from definition of discrete uniform that ranges from 0 to n
+    #Var[Y] = n(n+2)/12 
+
+    #E[X] = (2/n)(E[Y]-n/2) = (2/n)(n/2-n/2) = 0
+    #Var[X] = (4/n^2)Var[Y] #since Var(aX+b) = (a^2)Var[X]
+    #Var[X] = (4/n^2)(n(n+2)/12)
+    #Var[X] = (1/n^2)(n(n+2)/3)
+    #Var[X] = (1/n)((n+2)/3)
+    #Var[X] = (n+2)/3n
+    var = (num_iterations+2)/(3*num_iterations)
+
+    pre_calc_nulls = {}
     for gene,count in cell.gene_counts.items():
 
         # Calculate the obs mean dist
@@ -272,7 +312,6 @@ def _punctate(cell, num_iterations, num_pairs):
         # Null distribution by gene-label swapping
         if count in pre_calc_nulls:
             null_dists = pre_calc_nulls[count]
-
         else:
             null_dists = []
             for i in range(num_iterations):
@@ -286,7 +325,7 @@ def _punctate(cell, num_iterations, num_pairs):
         obs = sum(null_dists < obs_dist)
         exp = len(null_dists)/2
         score = (exp-obs)/exp
-        null_var = np.var([(exp-d)/exp for d in null_dists])
+
 
         data['metric'].append('puncta')
         data['cell_id'].append(cell.cell_id)
@@ -295,7 +334,7 @@ def _punctate(cell, num_iterations, num_pairs):
         data['gene'].append(gene)
         data['num_gene_spots'].append(cell.gene_counts[gene])
         data['score'].append(score)
-        data['variance'].append(null_var)
+        data['variance'].append(var)
 
     return pd.DataFrame(data)
 
@@ -374,7 +413,7 @@ def _central(cell):
         obs_med = np.median(gene_ranks)
         score = (exp_med-obs_med)/(exp_med-1)
 
-        data['metric'].append('periph')
+        data['metric'].append('central')
         data['cell_id'].append(cell.cell_id)
         data['annotation'].append(cell.annotation)
         data['num_spots'].append(cell.n)

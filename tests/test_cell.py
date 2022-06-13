@@ -112,8 +112,9 @@ def test_shrunk_cells_area_decreases(dataset, request):
 
     for cell in dataset.iter_cells():
         shrunk_cell = cell.shrink_boundaries(scale_factor=0.8)
+        shared_zs = set(cell.zslices).intersection(shrunk_cell.zslices)
 
-        for zslice in cell.zslices:
+        for zslice in shared_zs:
             orig_p = shapely.geometry.Polygon(cell.boundaries[zslice])
             shrunk_p = shapely.geometry.Polygon(shrunk_cell.boundaries[zslice])
 
