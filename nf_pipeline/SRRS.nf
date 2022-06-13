@@ -43,6 +43,15 @@ params.scoring_processes = 5
 params.permute_gene_labels = 'no'
 params.shrink_factor = 1
 
+//Output the parameter values to a log file
+new FileWriter("outputs/${params.run_name}/parameters.txt").with {              
+    write(String.format('%tF %<tH:%<tM', java.time.LocalDateTime.now())+"\n")   
+    for ( e in params ) {                                                       
+        write("params.${e.key} = ${e.value}\n")                                 
+    }                                                                           
+    flush()                                                                     
+}
+
 process gene_cell_scoring {
     cache 'lenient'
     cpus { params.scoring_processes }

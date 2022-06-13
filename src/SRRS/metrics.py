@@ -260,10 +260,8 @@ def radial(cells, **kwargs):
     
     with mp.Pool(processes=processes) as p:
         score_df = pd.DataFrame()
-        start = time.time()
         for i,cell_df in enumerate(p.imap_unordered(f, cells)):
             score_df = pd.concat((score_df, cell_df), ignore_index=True)
-            start = time.time()
 
     return score_df
 

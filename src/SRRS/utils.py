@@ -1,16 +1,17 @@
-import multiprocessing as mp
-import operator as op
 import pandas as pd
 import numpy as np
-import collections
+import pysam
+
+import multiprocessing as mp
+import operator as op
 import functools
+import collections
 import tempfile
 import random
-import scipy
-import pysam
 import math
+import sys
 import os
-
+import logging
 
 p_med_cache = {}
 ncr_mem = {}
@@ -291,7 +292,7 @@ def random_mean_pairs_angle(spots, centroid, num_pairs):
 
 #taken directly from https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
 def angle_between(v1, v2):
-    """ Returns the angle in radians between vectors 'v1' and 'v2'::
+    """ Returns the angle in radians between vectors 'v1' and 'v2'
 
             >>> angle_between((1, 0, 0), (0, 1, 0))
             1.5707963267948966
@@ -337,7 +338,7 @@ def _map_bam_tag_chr(chroms, bam_path, mapping, key_tag, val_tag, tmp_dir):
     return chr_out_path
 
 
-def map_bam_tag(bam_path, out_path, mapping, key_tag='CB', val_tag='XO', processes=1):
+def map_bam_tag(bam_path, out_path, mapping, key_tag='CB', val_tag='XO', processes=1, logging_level=logging.INFO):
     """
     Create a new sorted and indexed bam file with an additional bam tag field
     Potentially useful for adding celltype tag to a bam for downstream processing
@@ -363,11 +364,21 @@ def map_bam_tag(bam_path, out_path, mapping, key_tag='CB', val_tag='XO', process
         processes
             the number of processes to use to multiplex the operation
     """
+    logging.basicConfig(
+        format='%(asctime)s: %(message)s',
+        level=logging_level,
+        stream=sys.stdout,
+    )
+    logger = logging.getLogger()
+
     tmp_dir = tempfile.TemporaryDirectory()
 
     #get the chroms for multiplexing
     with pysam.AlignmentFile(bam_path) as bam:
         chrom_dict = {ref:bam.get_reference_length(ref) for ref in bam.references}
+
+    logger.info(f'Found {len(chrom_dict)} chromosomes/contigs')
+    logger.debug(f'List of chromosomes/contigs {chrom_dict.keys()}')
 
     chrom_groups = create_balanced_groupings(processes,chrom_dict)
 
@@ -381,12 +392,18 @@ def map_bam_tag(bam_path, out_path, mapping, key_tag='CB', val_tag='XO', process
             val_tag = val_tag,
             tmp_dir = tmp_dir,
         )
-        chrom_bam_paths = p.map(f, chrom_groups.keys())
+        chrom_bam_paths = []
+        for i,chrom_bam_path in enumerate(p.map(f, chrom_groups.keys())):
+            logger.info(f'Finished chrom group {i+1} of {len(chrom_groups)}')
+            chrom_bam_paths.append(chrom_bam_path)
 
     #merge the individual bam files and create index
-    merge_args = ['-@',str(processes),'-f',str(out_path)] + chrom_bam_paths
+    merge_args = ['-@',str(processes),'-c','-f',str(out_path)] + chrom_bam_paths
+    logger.info(f'Merging {len(chrom_groups)} annotated bams')
     pysam.merge(*merge_args)
+    logger.info('Finished merge, starting indexing')
     pysam.index(str(out_path))
+    logger.info('Finished indexing')
 
     #delete the tmpdir containing all the tmp bams
     tmp_dir.cleanup()

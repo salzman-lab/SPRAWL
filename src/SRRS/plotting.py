@@ -2,6 +2,7 @@ from . import utils
 
 import collections
 import pandas as pd
+import scipy as scp
 import numpy as np
 import pysam
 
@@ -407,16 +408,16 @@ def read_buildup_plot(bam_path, locus, ann_df, spatial_df=None, stratify_tag=Non
 
     #if there is spatial data provided then subset to just shared ontologies
     if spatial_df is not None:
-
         shared_onts = set(count_df['Ontology']).intersection(spatial_df['annotation'])
         if not shared_onts:
-            sys.stderr.write('Warning: No shared ontologies between spatial_df and count_df\n')
+            #sys.stderr.write('Warning: No shared ontologies between spatial_df and count_df, returning None\n')
+            return None
 
         spatial_df = spatial_df[spatial_df['annotation'].isin(shared_onts)]
         count_df = count_df[count_df['Ontology'].isin(shared_onts)]
   
     onts = count_df.groupby('Ontology')['CDF'].apply(lambda v: sum(v<0.5)).sort_values().index
-    ont_colors = {o:c for o,c in zip(onts,sns.color_palette("hls", len(onts)))}
+    ont_colors = {o:c for o,c in zip(onts,sns.cubehelix_palette(n_colors=len(onts),start=.5, rot=-.75))}
 
 
     #Subsetting the gene annotation info to this region
@@ -441,7 +442,7 @@ def read_buildup_plot(bam_path, locus, ann_df, spatial_df=None, stratify_tag=Non
 
     num_rows = 3+len(onts)
     fig,axs = plt.subplots(
-        figsize=(4*ncols,num_rows),
+        figsize=(5*ncols,num_rows),
         nrows=num_rows, ncols=ncols,
         sharex=False, sharey=False,
     )
@@ -471,6 +472,9 @@ def read_buildup_plot(bam_path, locus, ann_df, spatial_df=None, stratify_tag=Non
             lambda g: ((g['Window'].multiply(g['Count']).sum()/g['Count'].sum())-exp_val)/half_span
         )
 
+        r,p = scp.stats.pearsonr(mean_spatial, mean_readzs)
+        corr_ax.set_title('Pearson r={:.2f} p={:.2f}'.format(r,p))
+
         corr_df = pd.DataFrame({
             'Spatial':mean_spatial,
             'Genomic':mean_readzs,
@@ -498,22 +502,24 @@ def read_buildup_plot(bam_path, locus, ann_df, spatial_df=None, stratify_tag=Non
             ax = corr_ax,
         )
 
-        #Create each violinplot for the different onts
+        
+
+        #Create each spatial plot for the different onts
         for i,ont in enumerate(onts):
             plot_ax = axs[i+3][0]
-            sns.violinplot(
+            sns.boxplot(
                 x = 'score',
                 y = 'annotation',
-                orient = 'h',
                 color = ont_colors[ont],
                 data = spatial_df[spatial_df['annotation'].eq(ont)],
                 ax = plot_ax,
             )
             plot_ax.axvline(0, linestyle='dashed', color='grey')
-            plot_ax.set_xlabel('')
-            plot_ax.set_ylabel('')
             plot_ax.set_xlim(-1,1)
+            plot_ax.set_xlabel('')
+            plot_ax.set_ylabel(ont)
             plot_ax.set_xticks([])
+            plot_ax.set_yticks([])
 
         #Add an xlabel to the last subplot
         plot_ax.set_xticks([-1,0,1])
@@ -565,9 +571,10 @@ def read_buildup_plot(bam_path, locus, ann_df, spatial_df=None, stratify_tag=Non
     handles = [Line2D([0],[0], color=gene_colors[g], lw=4) for g in genes]
     ann_ax.legend(
         handles, genes,
-        title='Gene names',
-        loc='center left',
-        bbox_to_anchor=(1, 0.5), 
+        title='Gene names' if not strand else f'Gene names for {strand} strand',
+        loc='upper center',
+        bbox_to_anchor=(0.5, 2.0), 
+        ncol=len(genes),
     )
 
     #Plot individual density plots

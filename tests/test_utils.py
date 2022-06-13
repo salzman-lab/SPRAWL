@@ -5,7 +5,8 @@ from SRRS import vignette, utils
 import pysam
 import pandas as pd
 
-def test_ann_bam(tmp_path):
+@pytest.mark.parametrize('processes',[1,5])
+def test_ann_bam(tmp_path,processes):
     correct_out_path = vignette.get_data_path('ont_ann.bam')
     bam_path = vignette.get_data_path('no_ont.bam')
     out_path = tmp_path / 'test_ont.bam'
@@ -14,7 +15,7 @@ def test_ann_bam(tmp_path):
     mapping_df = pd.read_csv(mapping_path)
     mapping = dict(mapping_df.values)
 
-    utils.map_bam_tag(bam_path, out_path, mapping, processes=1)
+    utils.map_bam_tag(bam_path, out_path, mapping, processes=processes)
     
     with pysam.AlignmentFile(correct_out_path) as true_bam, pysam.AlignmentFile(out_path) as test_bam:
         r1s,r2s = true_bam.fetch(),test_bam.fetch()

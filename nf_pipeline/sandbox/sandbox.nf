@@ -1,7 +1,3 @@
-//Default params
-params.scoring_processes = 5
-params.permute_gene_labels = 'yes'
-
 //Default all metrics off, add to list if user turned them on
 def metrics_list = []
 
@@ -28,11 +24,21 @@ if(params.punctate){
 
 metrics_ch = Channel.fromList(metrics_list)
 
-print params.scoring_processes
-
-print params.peripheral
-print params.central
-print params.radial
-print params.punctate
 metrics_ch.view()
+
+//Default params
+params.scoring_processes = 5
+params.permute_gene_labels = 'no'
+params.shrink_factor = 1
+
+//Output the parameter values to a log file
+new FileWriter("outputs/${params.run_name}/parameters.txt").with {
+    write(String.format('%tF %<tH:%<tM', java.time.LocalDateTime.now())+"\n")
+    for ( e in params ) {
+        write("params.${e.key} = ${e.value}\n")
+    }
+    flush()
+} 
+    
+
 
