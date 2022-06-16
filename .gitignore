@@ -21,6 +21,7 @@
 *.bedGraph
 *.xml
 *.gpkg
+notebook_job.*
 work/
 
 # Log files/implementation files

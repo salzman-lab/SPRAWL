@@ -470,6 +470,10 @@ def readzs_proxy_score(bam_path, locus, stratify_tag=None, **kwargs):
     """
     Flexible function to create a ReadZs score proxy directly from a bam
     Can optionally stratify by a tag in the bam
+
+    Assigns a score between -1 and 1
+    -1 if the median of the group is at the left-most edge of the locus
+    1 if the median of the group is at the right-most edge of the locus
     """
     try:
         chrom,start,end = locus
@@ -482,8 +486,8 @@ def readzs_proxy_score(bam_path, locus, stratify_tag=None, **kwargs):
     count_df = bam_read_positions(bam_path, locus, stratify_tag=stratify_tag, **kwargs)
 
     exp_med = (end+start)/2
-    span = end-start
-    ont_to_score = count_df.groupby('strat')['pos'].median().subtract(exp_med).div(span).to_dict()
+    half_span = (end-start)/2
+    ont_to_score = count_df.groupby('strat')['pos'].median().subtract(exp_med).div(half_span).to_dict()
     return ont_to_score
 
 
