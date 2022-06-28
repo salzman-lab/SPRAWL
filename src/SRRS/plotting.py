@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection, PatchCollection
 from matplotlib.lines import Line2D
 from matplotlib import cm
+import matplotlib.backends.backend_pdf
 import seaborn as sns
 
 import sys
@@ -468,6 +469,7 @@ def read_buildup_plot(bam_path, locus, ann_df, spatial_df=None, stratify_tag=Non
         half_span = (end-start)/2
         count_df['Window'] = count_df['Window'].astype(int)
 
+        #Calculating median ReadZs proxy score
         mean_readzs = count_df.groupby('Ontology').apply(
             lambda g: ((g['Window'].multiply(g['Count']).sum()/g['Count'].sum())-exp_val)/half_span
         )
@@ -502,8 +504,6 @@ def read_buildup_plot(bam_path, locus, ann_df, spatial_df=None, stratify_tag=Non
             ax = corr_ax,
         )
 
-        
-
         #Create each spatial plot for the different onts
         for i,ont in enumerate(onts):
             plot_ax = axs[i+3][0]
@@ -525,8 +525,16 @@ def read_buildup_plot(bam_path, locus, ann_df, spatial_df=None, stratify_tag=Non
         plot_ax.set_xticks([-1,0,1])
         plot_ax.set_xlabel('Spatial score')
 
-    #Drawing the gene annotations exons/UTRs
-    for i,((gene,transcript_id),transcript_df) in enumerate(ann_df.groupby(['label','group'])):
+    #Drawing the gene annotations exons/UTR
+    #the following if/else sorts the transcripts to look pretty
+    if not strand or strand == '+':
+        ann_df['extreme'] = ann_df.groupby(['label','group'])['end'].transform('max')
+    else:
+        ann_df['extreme'] = ann_df.groupby(['label','group'])['start'].transform('min')
+
+    ann_df = ann_df.sort_values('extreme')
+
+    for i,((gene,transcript_id),transcript_df) in enumerate(ann_df.groupby(['label','group'],sort=False)):
         transcript_df = ann_df[ann_df['label'].eq(gene) & ann_df['group'].eq(transcript_id)]
 
         y = 2*(i+1)
@@ -596,6 +604,7 @@ def read_buildup_plot(bam_path, locus, ann_df, spatial_df=None, stratify_tag=Non
 
     #Add an xlabel to the last subplot
     plot_ax.set_xlabel(chrom)
+    plot_ax.set_xticks([start,end])
   
 
     #Plot combined density and cumsum plots
@@ -622,13 +631,23 @@ def read_buildup_plot(bam_path, locus, ann_df, spatial_df=None, stratify_tag=Non
         data = count_df,
         ax = sum_ax,
     )
+    sum_ax.axhline(0.5, linestyle='dashed', color='grey')
     sum_ax.legend(loc='center left', title='Cell-type', bbox_to_anchor=(1, 0.5))
     sum_ax.set_xlim(start,end)
     sum_ax.set_xticks([])
+    sum_ax.set_yticks([0, 0.5, 1])
     sum_ax.set_xlabel('')
 
     
     return fig
 
+
+def make_pdf(out_name):
+    """
+    Silly convenience function because I always forget how to make a pdf handle to save figures to
+    (responsibility of the caller to close the handle)
+    """
+    pdf = matplotlib.backends.backend_pdf.PdfPages(out_name)
+    return pdf
 
 

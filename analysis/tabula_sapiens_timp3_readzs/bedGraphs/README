@@ -1,3 +1,11 @@
 how to upload to s3
 
-aws s3 cp bladder_bladder_urothelial_cell.bedGraph s3://ucsc-readzs/
+aws s3 cp bladder_bladder_urothelial_cell.bedGraph s3://ucsc-readzs/bedGraphs/
+
+
+to upload multiple files with a wild-card you can use:
+
+aws s3 cp . s3://ucsc-readzs/bedGraphs/ --recursive --exclude "*" --include "density*.bedGraph"
+
+The URL prefix with escaped /'s is:
+https:\/\/ucsc-readzs.s3.us-west-1.amazonaws.com\/bedGraphs\/
