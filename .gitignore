@@ -21,6 +21,8 @@
 *.bedGraph
 *.xml
 *.gpkg
+*.svg
+*.zscore
 notebook_job.*
 work/
 
