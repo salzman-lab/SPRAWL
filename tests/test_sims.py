@@ -6,13 +6,6 @@ import functools
 
 from SRRS import simulate, scoring
 
-available_permutations = {
-    'null':simulate.null_permute_gene_labels,
-    'lin':simulate.lin_permute_gene_labels,
-    'exp':simulate.exp_permute_gene_labels,
-}
-
-
 def perm_helper(orig_c,perm_c):
     """
     Common checks to different permutation methods
@@ -63,47 +56,7 @@ def test_null_perm_across_z(dataset,seed,request):
         simulate.null_permute_gene_labels(perm_c, within_z=False)
         perm_helper(orig_c,perm_c)
 
-
-@pytest.mark.xfail
-@pytest.mark.parametrize('dataset',['m1s4','m2s4'])
-@pytest.mark.parametrize('alt_hyp',['lin','exp'])
-@pytest.mark.parametrize('seed',[25,682])
-def test_alt_peripheral_perms(dataset,alt_hyp,seed,request):
-    """
-    Test peripheral alternative hypothesis gene label swapping
-    """
-    np.random.seed(seed)
-    data = request.getfixturevalue(dataset)
-
-    gene_ks = {
-        'C1ql3':2, #biased towards small ranks
-        'Pou6f2':0.5, #biased towards large ranks
-    }
-
-    perm_f = functools.partial(
-        available_permutations[alt_hyp],
-        metric='peripheral',
-        gene_ks=gene_ks,
-    )
-
-    orig_cells = data.cells()
-    perm_cells = data.cells()
-
-    perm_median_ranks = {g:[] for g in gene_ks.keys()}
-
-    #Basic permutation checks
-    for orig_c,perm_c in zip(orig_cells,perm_cells):
-        perm_f(perm_c)
-        perm_helper(orig_c,perm_c)
-
-        if all(g in perm_c.gene_med_ranks for g in gene_ks):
-            perm_median_ranks['C1ql3'].append(perm_c.gene_med_ranks['C1ql3'])
-            perm_median_ranks['Pou6f2'].append(perm_c.gene_med_ranks['Pou6f2'])
-
-    assert np.mean(perm_median_ranks['C1ql3']) < np.mean(perm_median_ranks['Pou6f2'])
-
-
-@pytest.mark.xfail
+@pytest.mark.skip(reason='Dont know how to test gene celltype null sim quickly')
 @pytest.mark.parametrize('dataset',['m1s4','m2s4'])
 @pytest.mark.parametrize('metric',['peripheral','radial'])
 @pytest.mark.parametrize('seed',[25])
