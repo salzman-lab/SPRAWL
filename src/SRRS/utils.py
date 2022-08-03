@@ -431,7 +431,12 @@ def bam_read_positions(bam_path, locus, stratify_tag=None, **kwargs):
     #Counting reads per tag in this region
     def get_tag(read):
         try:
-            return read.get_tag(stratify_tag)
+            if type(stratify_tag) == str:
+                tag_id = read.get_tag(stratify_tag)
+            elif type(stratify_tag) in (list, tuple):
+                tag_id = tuple(read.get_tag(t) for t in stratify_tag)
+            return tag_id
+
         except KeyError:
             return None
 

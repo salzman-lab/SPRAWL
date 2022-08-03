@@ -5,5 +5,7 @@ Subcellular RNA Ranked Statistics
 
 Install locally with
 
+source .venv/bin/activate
+
 pip install -e .
 
