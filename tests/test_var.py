@@ -1,7 +1,7 @@
 import pytest
-from SRRS import utils
-from SRRS import scoring
-from SRRS import cell
+from sprawl import utils
+from sprawl import scoring
+from sprawl import cell
 import numpy as np
 import collections
 

@@ -1,5 +1,5 @@
 import pytest
-from SRRS import plotting,scoring,vignette
+from sprawl import plotting,scoring,vignette
 
 import matplotlib
 import pandas as pd

@@ -2,7 +2,7 @@ import pytest
 import os
 import shutil
 
-from SRRS import vignette, hdf5
+from sprawl import vignette, hdf5
 
 @pytest.fixture
 def m1s4():

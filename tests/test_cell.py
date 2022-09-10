@@ -1,6 +1,6 @@
 import pytest
-import SRRS
-from SRRS import cell
+import sprawl
+from sprawl import cell
 
 import shapely.geometry
 

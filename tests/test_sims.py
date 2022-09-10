@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import functools
 
-from SRRS import simulate, scoring
+from sprawl import simulate, scoring
 
 def perm_helper(orig_c,perm_c):
     """

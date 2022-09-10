@@ -1,6 +1,6 @@
 import pytest
-import SRRS
-from SRRS import vignette, utils
+import sprawl
+from sprawl import vignette, utils
 
 import pysam
 import pandas as pd

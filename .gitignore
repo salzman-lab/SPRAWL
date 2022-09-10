@@ -23,6 +23,7 @@
 *.gpkg
 *.svg
 *.zscore
+*.bw
 notebook_job.*
 work/
 
