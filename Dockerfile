@@ -1,7 +1,6 @@
 FROM python:3.8
 
-#Install SRRS python package
-ADD setup.py setup.cfg pyproject.toml requirements_test.txt MANIFEST.in SRRS/
-ADD src SRRS/src/
-RUN pip install ./SRRS
+#Install sprawl python package into the docker image
+ADD package sprawl/
+RUN pip install ./sprawl
 

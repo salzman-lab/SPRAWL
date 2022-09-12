@@ -1,5 +1,6 @@
 coverage:
-  precision: 2
-  round: down
-  range: "70...100"
-
+  status:
+    patch:
+      default:
+        target: 50  # new contributions should have a coverage at least equal to target
+  

@@ -1,7 +1,7 @@
 #!/usr/local/bin/python
-#Above is python path in the docker container with SRRS installed
-import SRRS
-from SRRS import simulate
+#Above is python path in the docker container with sprawl installed
+import sprawl
+from sprawl import simulate
 
 import argparse
 
@@ -20,7 +20,7 @@ def main():
 
     args = parser.parse_args()
 
-    sample = SRRS.HDF5(args.hdf5_path)
+    sample = sprawl.HDF5(args.hdf5_path)
     cells = sample.iter_cells()
 
     #Permute cells before scoring depending on args
@@ -38,7 +38,7 @@ def main():
     )
 
     #score and write out table
-    score_df = SRRS.iter_scores(cells, metric=args.metric, processes=args.processes)
+    score_df = sprawl.iter_scores(cells, metric=args.metric, processes=args.processes)
     score_df['experiment'] = args.experiment
     score_df['sample'] = args.sample
     score_df.to_csv(args.output_name, index=False)

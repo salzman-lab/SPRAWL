@@ -1,7 +1,7 @@
 #!/usr/local/bin/python
-#Above is python path in the docker container with SRRS installed
-import SRRS
-from SRRS import scoring
+#Above is python path in the docker container with sprawl installed
+import sprawl
+from sprawl import scoring
 
 import argparse
 

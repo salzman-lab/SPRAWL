@@ -1,6 +1,6 @@
 #!/usr/local/bin/python
-#Above is python path in the docker container with SRRS installed
-import SRRS
+#Above is python path in the docker container with sprawl installed
+import sprawl
 import argparse
 
 import pandas as pd

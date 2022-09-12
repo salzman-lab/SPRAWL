@@ -23,6 +23,7 @@
 *.gpkg
 *.svg
 *.zscore
+*.bw
 notebook_job.*
 work/
 
@@ -40,6 +41,8 @@ nextflow*
 #notebooks in analysis can be included
 !analysis/**/*.ipynb
 
+#svgs in papers folder can be included
+!paper/svg_figures/*.svg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

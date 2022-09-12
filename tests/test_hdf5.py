@@ -1,7 +1,7 @@
 import pytest
 
-import SRRS
-from SRRS import utils
+import sprawl
+from sprawl import utils
 
 def test_cell_counts(m1s4, m2s4):
     assert m1s4.num_cells == 20
@@ -66,8 +66,8 @@ def test_write_cells(dataset, request, tmp_path):
     orig_cells = orig_sample.cells()
     out_path = tmp_path / 'test_save_out.hdf5'
 
-    SRRS.HDF5.write_cells(orig_cells, out_path)
-    saved_sample = SRRS.HDF5(out_path)
+    sprawl.HDF5.write_cells(orig_cells, out_path)
+    saved_sample = sprawl.HDF5(out_path)
     saved_cells = saved_sample.cells()
 
     assert orig_sample.num_cells == saved_sample.num_cells

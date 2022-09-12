@@ -1,6 +1,6 @@
 import pytest
-import SRRS
-from SRRS import vignette, command_line
+import sprawl
+from sprawl import vignette, command_line
 
 from click.testing import CliRunner
 
