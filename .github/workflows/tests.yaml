@@ -33,7 +33,7 @@ jobs:
         run: pip install -r requirements_test.txt 
 
       - name: Run tests with cov
-        run: pytest --cov=src --durations=0 tests/ --cov-report=xml
+        run: pytest --cov=package/src --durations=0 tests/ --cov-report=xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v2
