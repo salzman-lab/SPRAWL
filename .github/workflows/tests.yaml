@@ -26,8 +26,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install SRRS
-        run: pip install -e .
+      - name: Install sprawl
+        run: pip install package/
 
       - name: Install testing dependencies
         run: pip install -r requirements_test.txt 
