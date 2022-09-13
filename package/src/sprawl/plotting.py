@@ -17,7 +17,7 @@ import seaborn as sns
 
 import sys
 
-def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='grey', rainbow=False, fig=None, ax=None):
+def plot_cell_3D(cell, gene_colors={}, default_spot_color='grey', rainbow=False, fig=None, ax=None):
     """
     3D plot of a cell
     optionally color spots by gene or rank
@@ -36,7 +36,6 @@ def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='
     ys = []
     zs = []
     genes = []
-    ranks = []
 
     for z_ind in cell.zslices:
         z = int(z_ind)*1.5
@@ -51,13 +50,11 @@ def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='
         s_ys = cell.spot_coords[z_ind][:,1]
         s_zs = [z]*len(s_xs)
         s_genes = cell.spot_genes[z_ind]
-        s_ranks = cell.spot_ranks[z_ind]
 
         xs.extend(s_xs)
         ys.extend(s_ys)
         zs.extend(s_zs)
         genes.extend(s_genes)
-        ranks.extend(s_ranks)
 
     xs = np.array(xs)
     ys = np.array(ys)
@@ -77,19 +74,6 @@ def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='
             if sum(gene_inds):
                 ax.scatter3D(xs[gene_inds], ys[gene_inds], zs[gene_inds], color=color, label=gene, s=35)
                 show_legend = True
-
-       
-
-    elif color_by_rank:
-        #Color all spots by rank
-        #If trying to color by rank, but cell is not yet ranked, give a warning
-        if not cell.ranked:
-            sys.stderr.write('Warning: Trying to color by rank, but cell spots not yet ranked\n')
-        else:
-            cmap = cm.get_cmap('viridis_r', len(ranks))
-            norm = mpl.colors.Normalize(vmin=1, vmax=len(ranks))
-            ax.scatter3D(xs, ys, zs, color=cmap(ranks), s=36)
-            fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap),label='Rank')
 
     else:
         #Plot spots which have associated colors
@@ -115,7 +99,7 @@ def plot_cell_3D(cell, gene_colors={}, color_by_rank=False, default_spot_color='
 
     plt.title('Celltype {}'.format(cell.annotation))
     if show_legend:
-        plt.legend()
+        plt.legend(ncol=3)
 
 
     return fig,ax

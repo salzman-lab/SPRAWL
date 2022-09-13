@@ -1,5 +1,5 @@
 #!/usr/local/bin/python
-#Above is python path in the docker container with sprawl installed
+#Above is the python path in the docker container with sprawl installed
 import sprawl
 from sprawl import scoring
 
