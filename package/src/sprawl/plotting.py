@@ -20,13 +20,10 @@ import sys
 def plot_cell_3D(cell, gene_colors={}, default_spot_color='grey', rainbow=False, fig=None, ax=None):
     """
     3D plot of a cell
-    optionally color spots by gene or rank
+    optionally color spots by gene
 
     returns figure handle and ax as tuple
     """
-    #If gene colors given and coloring by rank, just color by rank
-    gene_colors = {} if color_by_rank else gene_colors
-
     if not ax or not fig:
         fig = plt.figure(figsize=(6,6))
         ax = plt.axes(projection='3d')
@@ -106,16 +103,13 @@ def plot_cell_3D(cell, gene_colors={}, default_spot_color='grey', rainbow=False,
 
 
 
-def plot_cell_zslices(cell, gene_colors={}, color_by_rank=False, default_spot_color='grey', rainbow=False):
+def plot_cell_zslices(cell, gene_colors={}, default_spot_color='grey', rainbow=False):
     """
     plot of a cell separated by z-slice
     optionally color spots by gene
 
     returns figure handle and axs as tuple
     """
-    #If gene colors given and coloring by rank, just color by rank
-    gene_colors = {} if color_by_rank else gene_colors
-
     #Make as square a layout as I can
     zslices = cell.zslices
     nslices = len(zslices)
@@ -156,10 +150,6 @@ def plot_cell_zslices(cell, gene_colors={}, color_by_rank=False, default_spot_co
                         handles.append(handle)
                 else:
                     colors.append(default_spot_color)
-
-        #color by rank
-        elif color_by_rank and cell.ranked:
-            colors = cmap(cell.spot_ranks[zslice])
 
         #give each gene a different color
         elif rainbow:
@@ -220,16 +210,6 @@ def plot_cell_zslices(cell, gene_colors={}, color_by_rank=False, default_spot_co
             s = 72,
         )
 
-
-
-    #If trying to color by rank, but cell is not yet ranked, give a warning
-    if color_by_rank:
-        if not cell.ranked:
-            sys.stderr.write('Warning: Trying to color by rank, but cell spots not yet ranked\n')
-        else:
-            fig.subplots_adjust(right=0.8)
-            cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-            fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap),label='Rank', cax=cbar_ax)
 
     for used_i in range(i+1):
         axs[used_i].set_xticks([])
