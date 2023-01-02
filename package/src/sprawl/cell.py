@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import collections
 import numpy as np
 import shapely
+import shapely.affinity
 import shapely.geometry
 import copy
 import os
