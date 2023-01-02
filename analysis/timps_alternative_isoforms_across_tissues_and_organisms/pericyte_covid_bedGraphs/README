@@ -1,0 +1,8 @@
+Upload to AWS using:
+
+aws s3 cp . s3://ucsc-readzs/bedGraphs/ --recursive --exclude "*" --include "density*.bedGraph"
+
+
+Will get uploaded to the following path:
+https://ucsc-readzs.s3.us-west-1.amazonaws.com/bedGraphs/*.bedGraph
+

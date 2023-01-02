@@ -1,0 +1,30 @@
+Jui Dave from the lab of Dan Greif ran a qPCR experiment to test if the Timp3 3' UTR shortens throughout cell-culture of pericytes
+
+Here is the description of the protocol that Jui used:
+
+Human brain vascular pericytes (PCs, Sciencell) were cultured up to passage 5 in low-glucose DMEM (Gibco) supplemented with 10% FBS. ~1.2x105 PCs were seeded in each well of a 6-well plate pre-coated with 0.1% gelatin. For day0 sample, PC lysates and conditioned media were collected 6 hours after seeding for RNA isolation and ELISA applications. Similar samples were collected on day1, day2, day3 and day5 of PC culture. RNA was isolated with the PureLink RNA Kit (Invitrogen) and reverse transcribed with the iScript cDNA Synthesis Kit (Bio-Rad) and qRT-PCR was performed on a CFX96 Real-Time System (Bio-Rad) using SsoAdvanced Universal supermix (Bio-Rad). Transcript levels of TIMP3 with short or long 3’ UTR relative to housekeeping gene (B-actin or GAPDH or 18S rRNA) were determined. Levels of short 3’ UTR TIMP3 normalized to the long form are displayed in the graph.
+
+
+The Timp3 specific long and short primer pairs are:
+
+>Short_F1
+GGGAACTATCCTCCTGGCCC
+>Short_R1
+TTCTGGCATGGCACCAGAAAT
+>Short_F2
+AGGTCTATGCTGTCATATGGGGT
+>Short_R2
+TGGGGCCAGGAGGATAGTTC
+
+>Long_F1
+AATTGGCTCTTTGGAGGCGA
+>Long_R1
+GCGGATGCTGGGAGAATCTA
+>Long_F2
+TAGCCAGTCTGCTGTCCTGA
+>Long_R2
+GGGTTCGAGATCTCTTGTTGG
+
+The short primer pair should amplify BOTH the long and short 3' UTR isoform
+While the long primer pair should only amplify the long 3' UTR
+

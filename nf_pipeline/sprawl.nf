@@ -42,6 +42,7 @@ metrics_ch = Channel.fromList(metrics_list)
 params.scoring_processes = 5
 params.permute_gene_labels = 'no'
 params.shrink_factor = 1
+params.min_gene_spots = 1
 
 //Output the parameter values to a log file
 new FileWriter("outputs/${params.run_name}/parameters.txt").with {              
@@ -76,6 +77,7 @@ process gene_cell_scoring {
         --processes ${params.scoring_processes} \
         --permute_gene_labels ${params.permute_gene_labels} \
         --shrink_factor ${params.shrink_factor} \
+        --min_gene_spots ${params.min_gene_spots} \
     """
 }
 

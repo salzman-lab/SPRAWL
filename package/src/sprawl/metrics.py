@@ -92,6 +92,7 @@ def _peripheral(cell, ret_spot_ranks=False):
     spot_genes = np.array(spot_genes)
     spot_ranks = np.array(periph_dists).argsort().argsort()+1 #add one so ranks start at 1 rather than 0
 
+    #mostly for debugging
     if ret_spot_ranks:
         return spot_genes,spot_ranks
 
