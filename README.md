@@ -20,6 +20,7 @@ pip install subcellular-sprawl
 The following can be used to test that sprawl has been installed correctly
 ```
 from sprawl import vignette,plotting
+import matplotlib.pyplot as plt
 
 #load MERFISH sample data from included vignette
 sample = vignette.m1s4_hdf5()

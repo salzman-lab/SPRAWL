@@ -413,11 +413,12 @@ def map_bam_tag(bam_path, out_path, mapping, key_tag='CB', val_tag='XO', process
 
 def bam_read_positions(bam_path, locus, stratify_tag=None, **kwargs):
     """
-    Flexible function to create a table of Read positions within a locus
+    Function to create a table of Read positions within a locus
     Can optionally stratify by a tag in the bam such as XO for cell-type
     """
     min_tag_reads = kwargs.get('min_tag_reads',0)
     strand = kwargs.get('strand',None)
+    perfect_CIGAR = kwargs.get('perfect_CIGAR',False)
 
     #handling locus
     try:
@@ -428,7 +429,7 @@ def bam_read_positions(bam_path, locus, stratify_tag=None, **kwargs):
         raise Exception('Must pass in a tuple of locus info such as locus=("chr1",1,100)')
 
 
-    #Counting reads per tag in this region
+    #Helper function for pulling tag from read
     def get_tag(read):
         try:
             if type(stratify_tag) == str:
@@ -442,6 +443,12 @@ def bam_read_positions(bam_path, locus, stratify_tag=None, **kwargs):
 
     strat_func = get_tag if stratify_tag else (lambda read: 'All')
 
+    #Helper functions for filtering reads
+    pos_filt = lambda r: start <= r.pos <= end
+    cig_filt = lambda r: (len(r.cigar) == 1) and pos_filt(r) #CIGAR length 1 means perfect ungapped mapping
+    filt_func = cig_filt if perfect_CIGAR else pos_filt
+
+    #Counting stratified reads
     count_data = {
         'strat':[],
         'pos':[],
@@ -449,7 +456,7 @@ def bam_read_positions(bam_path, locus, stratify_tag=None, **kwargs):
 
     with pysam.AlignmentFile(bam_path) as bam:
         for r in bam.fetch(chrom,start,end):
-            if r.pos < start or r.pos > end:
+            if not filt_func(r):
                 continue
 
             if strand:

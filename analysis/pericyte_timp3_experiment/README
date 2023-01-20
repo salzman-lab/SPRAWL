@@ -1,0 +1,83 @@
+Jui Dave from the lab of Dan Greif ran an experiment growing pericytes over multiple days with readouts in the form of qPCR and ELISAs. The qPCR experiments were to test if the Timp3 3' UTR shortens throughout cell-culture of pericytes, and the Timp3 ELISAs on the supernatant of the culture were used to measure extracellular Timp3 concentration over time.
+
+============================================
+Brief description of the directory structure
+============================================
+.
+├── excel_files/
+│   └── [Original excel files provided by Jui (I might have made slight modifications)]
+├── input_csvs/
+│   └── [csv files from manually transforming the excel files. holds the same info, but in easier form to load into python]
+├── README (this file)
+├── svgs
+│   └── [directory of output svgs for figures]
+└── timp3_experiment_analysis_plots.ipynb (main analysis notebook)
+
+
+==========================================================
+Here is the description of the qPCR protocol that Jui used
+==========================================================
+Human brain vascular pericytes (PCs, Sciencell) were cultured up to passage 5 in low-glucose DMEM (Gibco) supplemented with 10% FBS. ~1.2x105 PCs were seeded in each well of a 6-well plate pre-coated with 0.1% gelatin. For day0 sample, PC lysates and conditioned media were collected 6 hours after seeding for RNA isolation and ELISA applications. Similar samples were collected on day1, day2, day3 and day5 of PC culture. RNA was isolated with the PureLink RNA Kit (Invitrogen) and reverse transcribed with the iScript cDNA Synthesis Kit (Bio-Rad) and qRT-PCR was performed on a CFX96 Real-Time System (Bio-Rad) using SsoAdvanced Universal supermix (Bio-Rad). Transcript levels of TIMP3 with short or long 3’ UTR relative to housekeeping gene (B-actin or GAPDH or 18S rRNA) were determined.
+
+The Timp3 specific long and short primer pairs are:
+
+>Short_F1
+GGGAACTATCCTCCTGGCCC
+>Short_R1
+TTCTGGCATGGCACCAGAAAT
+>Short_F2
+AGGTCTATGCTGTCATATGGGGT
+>Short_R2
+TGGGGCCAGGAGGATAGTTC
+
+>Long_F1
+AATTGGCTCTTTGGAGGCGA
+>Long_R1
+GCGGATGCTGGGAGAATCTA
+>Long_F2
+TAGCCAGTCTGCTGTCCTGA
+>Long_R2
+GGGTTCGAGATCTCTTGTTGG
+
+The short primer pair should amplify BOTH the long and short 3' UTR isoform
+While the long primer pair should only amplify the long 3' UTR
+
+=========================================================================================
+Analysis of Jui's Timp3 ELISA results and BCA total protein results on cultured pericytes
+=========================================================================================
+
+The goal of the experiment is to test how the concentration of extracellular Timp3 changes throughout culture time
+We have evidence to suggest that the Timp3 3' UTR is shortening with culture time and are interested in whether
+there is a correlated increase or decrease in extracellular Timp3 w/ long/short 3' UTR lengths
+
+Here's my understanding of the experimental setup
+1. Culture 1.2e5 cells on day 0 in 4 different biological replicates
+2. Allow the culture to grow for 5 days without swapping out the media
+3. Measure Timp3 extracellular protein concentration, number of cells, and total extracellular, supernatant, protein concentration on days 0,1,2,3,5
+
+We're only using the data from timepoints 0,1,2,3 since Jui observed cell-death and general decrease in culture quality by day 5
+
+The data needs to be normalized
+* Need to normalize the Timp3 protein levels by the number of cells, but maybe not by the total protein expression?
+* Maybe we do need to normalize by the BCA total protein levels, we are uninterested in higher Timp3 strictly due to higher total protein expression I think?
+* Need to take into account Timp3 degradation rates, which we can only estimate. Jui provided a halflife of 15 hours with a reference
+
+ODE idea for modelling:
+* Want to do something simple preferably
+* Have a single equation which is the rate of change of Timp3 extracellular protein per day?
+* Then have terms for creation rates per cell, loss by degradation per day
+* Could also make the model more complex and model long and short 3' UTR transcripts to incorporate the other data Jui generated?
+* I'm worried the model would be too complex and have so many parameters that we could basically make it do whatever we want
+* Also worried that I won't be able to correctly design, fit, or implement this model and even if I could, it would take a lot of time
+* I could and should ask for help, but I also want to make an initial attempt to share
+* I'll write out some proposed ODE equations in latex at the very least
+
+
+Another idea for modelling???
+* There must be a more statistical, simpler approach that I'm not thinking of
+* What is my goal really?
+* I don't need to model the dynamics of Timp3 over all days
+* Can I make a simple linear model instead of an ODE and use simple regrssion, and/or a GLM to estimate parameters?
+* I'm not sure though, I don't have very much data
+* Try to write an equation for this as well, will probably look similar to the ODE
+
