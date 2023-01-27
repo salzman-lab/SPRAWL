@@ -7,7 +7,7 @@
 SPRAWL is a tool to identify subcellular RNA localization patterning from highly multiplexed spatial transcriptomics techniques such as MERFISH/Vizgen and SeqFish+
 
 ### Manuscript
-The SPRAWL methodology is introduced in ???
+The SPRAWL methodology is introduced as a [BioRXiv preprint](https://www.biorxiv.org/content/10.1101/2022.10.26.513902v1) 
 
 ### Installation
 SPRAWL is available on PyPI as:
