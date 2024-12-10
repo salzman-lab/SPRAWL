@@ -1,4 +1,6 @@
 <!-- [![codecov](https://codecov.io/gh/r-bierman/SRRS/branch/main/graph/badge.svg?token=MGBPS830R9)](https://codecov.io/gh/r-bierman/SRRS) -->
+ELife publication: https://elifesciences.org/reviewed-preprints/87517
+
 
 ## SPRAWL: Subcellular Patterning Ranked Analysis With Labels
 
